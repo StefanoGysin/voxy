@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic
+openai-agents
+python-dotenv>=1.0.0
+pytest>=7.3.1
+pytest-asyncio # Necessário para testes async
+httpx>=0.24.0
+sqlalchemy>=2.0.0  # Opcional para persistência
+python-jose>=3.3.0  # Para JWT se implementar autenticação 

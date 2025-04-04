@@ -1,0 +1,109 @@
+/* Importa as diretivas base, de componentes e de utilitários do Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root { /* Light Mode Defaults */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark { /* Dark Purple Theme */
+    --background: 250 15% 11%;
+    --foreground: 210 20% 98%;
+    --card: 250 15% 15%;
+    --card-foreground: 210 20% 98%;
+    --popover: 250 15% 15%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 260 70% 65%;
+    --primary-foreground: 260 10% 95%;
+    --secondary: 255 30% 40%;
+    --secondary-foreground: 255 5% 95%;
+    --muted: 250 15% 25%;
+    --muted-foreground: 240 10% 65%;
+    --accent: 260 50% 55%;
+    --accent-foreground: 260 5% 95%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 250 15% 25%;
+    --input: 250 15% 25%;
+    --ring: 260 60% 75%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    @apply border-border;
+  }
+  
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+      monospace;
+  }
+}
+
+/* Estilo para a animação de "digitando" */
+.dot-typing {
+  position: relative;
+  left: -9999px;
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  /* Ajustar cor para combinar com o tema escuro? Talvez usar uma variável CSS? */
+  /* Por enquanto, mantendo #999 que pode contrastar bem no escuro */
+  background-color: #999;
+  color: #999;
+  box-shadow: 9984px 0 0 0 #999, 9999px 0 0 0 #999, 10014px 0 0 0 #999;
+  animation: dotTyping 1.5s infinite linear;
+}
+
+@keyframes dotTyping {
+  0% {
+    box-shadow: 9984px 0 0 0 #999, 9999px 0 0 0 #999, 10014px 0 0 0 #999;
+  }
+  16.667% {
+    box-shadow: 9984px -5px 0 0 #999, 9999px 0 0 0 #999, 10014px 0 0 0 #999;
+  }
+  33.333% {
+    box-shadow: 9984px 0 0 0 #999, 9999px 0 0 0 #999, 10014px 0 0 0 #999;
+  }
+  50% {
+    box-shadow: 9984px 0 0 0 #999, 9999px -5px 0 0 #999, 10014px 0 0 0 #999;
+  }
+  66.667% {
+    box-shadow: 9984px 0 0 0 #999, 9999px 0 0 0 #999, 10014px 0 0 0 #999;
+  }
+  83.333% {
+    box-shadow: 9984px 0 0 0 #999, 9999px 0 0 0 #999, 10014px -5px 0 0 #999;
+  }
+  100% {
+    box-shadow: 9984px 0 0 0 #999, 9999px 0 0 0 #999, 10014px 0 0 0 #999;
+  }
+}
