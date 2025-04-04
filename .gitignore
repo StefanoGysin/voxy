@@ -65,4 +65,7 @@ htmlcov/
 .env.production
 
 # Diretório do Banco de Memória da IA (Não versionar)
-memory-bank/ 
+memory-bank/
+
+# Diretório de configuração do Cursor (Não versionar)
+.cursor/ 
