@@ -1,10 +1,14 @@
-fastapi
-uvicorn
-pydantic
-openai-agents
+fastapi>=0.109.0
+uvicorn>=0.27.0
+pydantic-settings # Substitui pydantic para carregar .env
+openai-agents>=0.0.7
 python-dotenv>=1.0.0
-pytest>=7.3.1
-pytest-asyncio # Necessário para testes async
-httpx>=0.24.0
-sqlalchemy>=2.0.0  # Opcional para persistência
-python-jose>=3.3.0  # Para JWT se implementar autenticação 
+pytest>=7.4.3
+pytest-asyncio>=0.23.2
+httpx>=0.28.1
+sqlmodel>=0.0.24
+psycopg2-binary # Driver Postgres
+passlib[bcrypt]==1.7.4 # Versão fixada para hashing de senha
+bcrypt==3.2.0 # Versão fixada, dependência do passlib[bcrypt]
+python-jose[cryptography]>=3.3.0 # Para JWT
+mem0ai 

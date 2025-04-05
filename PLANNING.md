@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-Voxy é um sistema de agentes inteligentes baseado no OpenAI Agents SDK, composto por um backend Python com FastAPI e um frontend em React com Tailwind CSS. O sistema permitirá a interação com um agente principal (brain) que poderá coordenar outros agentes especializados no futuro.
+Voxy é um sistema de agentes inteligentes baseado no OpenAI Agents SDK, composto por um backend Python com FastAPI e um frontend em React com Tailwind CSS (usando Vite). O sistema permite interação com um agente principal (`brain`) que pode coordenar ferramentas, suporta autenticação de usuários e memória persistente por usuário via `mem0ai` e Supabase.
 
 **Nota Importante sobre Integração:** Ao usar o OpenAI Agents SDK com frameworks assíncronos como FastAPI, é crucial utilizar a execução assíncrona do agente (por exemplo, `Runner.run()`) em vez de métodos síncronos (`Runner.run_sync()`) dentro dos endpoints `async def` para evitar conflitos com o loop de eventos `asyncio`.
 
@@ -14,72 +14,85 @@ Voxy é um sistema de agentes inteligentes baseado no OpenAI Agents SDK, compost
 voxy/
 ├── backend/
 │   ├── app/
-│   │   ├── api/
+│   │   ├── api/         # Endpoints FastAPI (chat, auth)
 │   │   │   ├── __init__.py
 │   │   │   ├── auth.py
 │   │   │   ├── chat.py
 │   │   │   └── routes.py
-│   │   ├── agents/
+│   │   ├── agents/      # Lógica do Agente e Ferramentas
 │   │   │   ├── __init__.py
-│   │   │   ├── brain.py        # Agente principal
-│   │   │   ├── tools/          # Ferramentas para os agentes
+│   │   │   ├── brain.py       # Agente principal (com instruções proativas)
+│   │   │   ├── tools/         # Ferramentas (weather, memory)
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── weather.py  # Exemplo: ferramenta de clima
+│   │   │   │   ├── memory_tools.py
+│   │   │   │   └── weather.py
 │   │   │   └── utils.py
-│   │   ├── core/
+│   │   ├── core/        # Configurações, Segurança (JWT, hash)
 │   │   │   ├── __init__.py
 │   │   │   ├── config.py
 │   │   │   └── security.py
-│   │   ├── db/
+│   │   ├── db/          # Banco de Dados (Modelos, Sessão)
 │   │   │   ├── __init__.py
-│   │   │   └── models.py
+│   │   │   ├── models.py      # Modelo User (SQLModel)
+│   │   │   └── session.py
+│   │   ├── memory/      # Gerenciador de Memória (mem0ai)
+│   │   │   ├── __init__.py
+│   │   │   └── mem0_manager.py
 │   │   ├── __init__.py
-│   │   └── main.py
-│   ├── tests/
+│   │   └── main.py        # Aplicação FastAPI principal
+│   ├── tests/             # Testes Pytest
 │   │   ├── __init__.py
 │   │   ├── test_agents/
 │   │   │   ├── __init__.py
 │   │   │   ├── test_brain.py
-│   │   │   └── test_tools/     # Testes para as ferramentas
+│   │   │   └── test_tools/
 │   │   │       ├── __init__.py
+│   │   │       ├── test_memory_tools.py
 │   │   │       └── test_weather.py
-│   │   └── test_api/
-│   ├── .env.example
-│   ├── requirements.txt
-│   └── README.md
+│   │   └── test_api/      # Testes para endpoints (chat, auth - a criar)
+│   ├── .env.example       # Exemplo de variáveis de ambiente
+│   ├── requirements.txt   # Dependências Python atualizadas
+│   └── README.md          # README específico do Backend (pode ser criado)
 ├── frontend/
 │   ├── public/
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── Chat/         # Componentes específicos do Chat (Refatorados)
+│   │   ├── components/    # UI (Chat, Auth, Layout, shadcn)
+│   │   │   ├── Auth/
+│   │   │   │   ├── LoginForm.jsx
+│   │   │   │   └── RegisterForm.jsx
+│   │   │   ├── Chat/
 │   │   │   │   ├── ChatBox.jsx
 │   │   │   │   ├── ChatInput.jsx
 │   │   │   │   ├── ChatMessage.jsx
 │   │   │   │   └── index.jsx
-│   │   │   ├── Layout/       # Componentes de layout (Header, Footer, etc.)
-│   │   │   ├── UI/           # Componentes de UI reutilizáveis (shadcn/ui ou custom)
+│   │   │   ├── Layout/
+│   │   │   ├── UI/           # Componentes base shadcn/ui
 │   │   │   └── index.js
-│   │   ├── contexts/
+│   │   ├── contexts/      # AuthContext
 │   │   ├── hooks/
-│   │   ├── lib/            # Utilitários (ex: cn para Tailwind)
-│   │   │   └── utils.js
-│   │   ├── pages/
-│   │   ├── services/
-│   │   ├── styles/         # Arquivos CSS/Globais
+│   │   ├── lib/           # Utilitários (cn)
+│   │   ├── pages/         # Páginas (ChatPage, LoginPage, RegisterPage)
+│   │   ├── services/      # api.js (fetch)
+│   │   ├── styles/        # CSS Global
 │   │   │   └── globals.css
 │   │   ├── utils/
-│   │   ├── App.jsx
+│   │   ├── App.jsx        # Roteamento principal
 │   │   └── index.jsx
 │   ├── .env.example
 │   ├── package.json
-│   ├── tailwind.config.js # Configuração do Tailwind
-│   ├── postcss.config.js  # Configuração do PostCSS
-│   └── README.md
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   └── README.md          # README específico do Frontend (pode ser criado)
 ├── docs/
 │   ├── PLANNING.md
-│   └── TASK.md
+│   ├── TASK.md
+│   ├── architecture.md    # Documentos atualizados
+│   ├── goals.md
+│   ├── tech_stack.md
+│   └── ...
+├── memory-bank/           # Banco de memória para IA (atualizado)
 ├── .gitignore
-└── README.md
+└── README.md              # README Principal (atualizado)
 ```
 
 ## Backend
@@ -89,62 +102,25 @@ voxy/
 - **Python**: Linguagem principal
 - **FastAPI**: Framework para API REST
 - **OpenAI Agents SDK**: Para criação dos agentes inteligentes
-- **Pydantic**: Para validação de dados
-- **SQLAlchemy/SQLModel**: ORM para persistência (se necessário)
+- **SQLModel**: ORM e validação de dados (inclui Pydantic, SQLAlchemy)
+- **`mem0ai`**: SDK para memória de longo prazo
+- **`pydantic-settings`**: Carregamento de configuração (.env)
+- **`passlib[bcrypt]`**: Hashing de senha (v1.7.4)
+- **`bcrypt`**: Dependência de hash (v3.2.0)
+- **`python-jose[cryptography]`**: Manipulação de JWT
+- **`psycopg2-binary`**: Driver PostgreSQL
 - **Pytest**: Para testes unitários
+- **`pytest-asyncio`**: Suporte async em testes
+- **`httpx`**: Cliente HTTP assíncrono
 
 ### Componentes do Backend
 
-#### 1. Módulo de Agentes
+#### 1. Módulo de Agentes (`agents/`)
 
-- **brain.py**: Agente principal que coordenará outros agentes.
-  - Implementará `Agent` do OpenAI Agents SDK.
-  - Conterá instruções para o comportamento do agente, incluindo o uso de ferramentas.
-  - Definirá ferramentas disponíveis (ex: `get_weather`).
-
-```python
-from agents import Agent, Runner, function_tool
-from .tools.weather import get_weather # Importa a ferramenta
-
-# Define as ferramentas que o agente pode usar
-agent_tools = [get_weather]
-
-# Atualiza as instruções para mencionar a capacidade de obter o clima
-agent_instructions = """
-Você é Voxy, um assistente inteligente projetado para ser útil, amigável e eficiente.
-
-Suas características principais:
-- Responder perguntas com informações precisas e atualizadas.
-- Auxiliar na resolução de problemas.
-- Manter conversas naturais e engajadoras.
-- Adaptar-se ao estilo e necessidades do usuário.
-- Você pode verificar a previsão do tempo para uma cidade específica usando a ferramenta disponível.
-
-Sempre priorize a clareza, a precisão e a utilidade em suas respostas.
-"""
-
-# Inicializa o agente com as ferramentas e instruções atualizadas
-initial_agent = Agent(
-    name="Voxy Brain",
-    instructions=agent_instructions,
-    tools=agent_tools
-)
-
-async def process_message(message: str):
-    """
-    Processa uma mensagem recebida de forma assíncrona e retorna a resposta do agente.
-    
-    Args:
-        message (str): Mensagem do usuário.
-        
-    Returns:
-        str: Resposta do agente.
-    """
-    # Usar Runner.run() para execução assíncrona
-    # O Runner gerenciará a chamada da ferramenta se o LLM decidir usá-la
-    result = await Runner.run(initial_agent, message)
-    return result.final_output
-```
+- **`brain.py`**: Agente principal com instruções atualizadas (proatividade na memória).
+- **`tools/`**: Contém as ferramentas:
+    - `weather.py` (`get_weather`)
+    - `memory_tools.py` (`remember_info`, `recall_info` com docstrings atualizadas).
 
 #### 1.1. Módulo de Ferramentas (`agents/tools`)
 
@@ -216,12 +192,14 @@ async def chat(message: ChatMessage):
 ### Tecnologias
 
 - **React**: Biblioteca para UI
-- **Vite**: Ferramenta de build e servidor de desenvolvimento rápido
+- **Vite**: Ferramenta de build e servidor de desenvolvimento
 - **Tailwind CSS**: Framework CSS
-- **shadcn/ui:** Biblioteca de componentes reutilizáveis (instalados via CLI ou manualmente)
-- **Framer Motion (Opcional):** Para animações e transições suaves.
-- **Lucide React:** Biblioteca de ícones SVG.
-- **Fetch API / Axios**: Cliente HTTP para comunicação com o backend
+- **shadcn/ui**: Biblioteca de componentes UI
+- **`lucide-react`**: Ícones
+- **`react-router-dom`**: Roteamento
+- **React Context API**: Para gerenciamento de estado (ex: `AuthContext`)
+- **`localStorage`**: Para persistência do token JWT
+- **Fetch API**: Cliente HTTP
 
 ### Componentes do Frontend
 
@@ -304,99 +282,44 @@ export const sendMessage = async (content) => {
 
 ## Plano de Implementação
 
-### Fase 1: Configuração Inicial
+*As fases concluídas foram removidas para brevidade. O estado atual reflete a conclusão da Fase 9.*
 
-1. Configurar estrutura de pastas do projeto
-2. Configurar ambiente de desenvolvimento
-3. Inicializar repositório Git
+**Próximos Passos (Pós-Fase 9):**
 
-### Fase 2: Backend Básico
-
-1. Criar estrutura básica do aplicativo FastAPI
-2. Implementar o agente brain usando OpenAI Agents SDK (com execução assíncrona)
-3. Criar endpoints básicos da API
-4. Implementar testes unitários (adaptados para async)
-
-### Fase 3: Frontend Básico
-
-1. Configurar projeto React com Tailwind CSS
-2. Implementar componentes básicos da UI
-3. Criar interface de chat
-4. Integrar com o backend
-
-### **Fase 4: Melhoria da UI/UX do Frontend (Atual)**
-
-1.  **Configurar Bibliotecas de UI:** Instalar e configurar `shadcn/ui` e `lucide-react`.
-2.  **Refatorar Componentes:** Atualizar `App.jsx`, `ChatBox.jsx`, `ChatMessage.jsx`, `ChatInput.jsx` usando os novos componentes e estilos.
-3.  **Aplicar Estilos Globais:** Definir paleta de cores, fontes e estilos base em `globals.css`/`index.css`.
-4.  **Adicionar Animações (Opcional):** Integrar `framer-motion` para feedback visual.
-
-### Fase 5: Funcionalidades do Agente
-
-1.  **Implementar Ferramentas:**
-    *   Criar ferramentas úteis (ex: `get_weather`) em `backend/app/agents/tools/`.
-    *   Usar `@function_tool` para registrar as ferramentas.
-    *   Integrar APIs externas (ex: **OpenWeatherMap para `get_weather`**) se necessário. Utilizar `httpx` para chamadas assíncronas.
-    *   Escrever testes unitários para as ferramentas (mockando chamadas externas).
-2.  **Integrar Ferramentas ao Agente:**
-    *   Importar e adicionar ferramentas à lista `tools` na inicialização do `Agent` em `brain.py`.
-    *   Atualizar as `instructions` do agente para informá-lo sobre as novas ferramentas.
-
-### Fase 6: Refinamento
-
-1. Melhorar a experiência do usuário
-2. Adicionar mais ferramentas/agentes
-3. Reforçar a segurança
-4. Otimizar desempenho
+1.  **Refinamento e Testes (Backend):**
+    *   [ ] Escrever testes unitários/integração para autenticação (`api/auth.py`, `core/security.py`).
+    *   [ ] Adaptar testes existentes do agente (`tests/test_agents/`) para incluir contexto de autenticação (mock `get_current_user` ou similar).
+    *   [ ] Considerar uso de Alembic para futuras migrações de banco de dados.
+2.  **Documentação:**
+    *   [x] Atualizar `memory-bank/*` (Concluído)
+    *   [x] Atualizar `docs/*` (architecture, goals, tech_stack) (Concluído)
+    *   [x] Atualizar `README.md` principal (Concluído)
+    *   [x] Atualizar `PLANNING.md` (Esta atualização)
+    *   [ ] Criar READMEs específicos para `backend/` e `frontend/` (Opcional)
+3.  **Melhorias (Opcional / Futuro):**
+    *   [ ] Frontend: Validação de formulário mais robusta.
+    *   [ ] Frontend: Melhor feedback visual (loading, success, error).
+    *   [ ] Backend/Frontend: Implementar refresh tokens para segurança JWT aprimorada.
+    *   [ ] Explorar Handoffs, MCP, Guardrails do OpenAI SDK.
+    *   [ ] Refatorar lógica DB para camada `crud`.
 
 ## Considerações de Segurança
 
-- Armazenar chaves de API (ex: `OPENAI_API_KEY`, **`OPENWEATHERMAP_API_KEY`**) em variáveis de ambiente (`.env` no backend).
-- Implementar validação de entrada rigorosa
-- Considerar a adição de autenticação de usuário
-- Limitar taxa de solicitações à API
+- **Variáveis de Ambiente:** Manter `.env` seguro e NUNCA comitar `SECRET_KEY`, chaves de API, ou connection strings no Git.
+- **Validação de Entrada:** Usar Pydantic/SQLModel rigorosamente.
+- **Autenticação:** JWT implementado, considerar refresh tokens.
+- **Hashing de Senha:** `passlib` com `bcrypt`.
+- **Dependências:** Manter atualizadas (com atenção a versões fixadas como `passlib`/`bcrypt`).
+- **Limitação de Taxa:** Considerar adicionar à API.
 
 ## Teste e Qualidade de Código
 
-- Implementar testes unitários para todas as funcionalidades principais (incluindo ferramentas)
-- Implementar testes de componentes para o frontend, se possível.
-- Seguir PEP8 e formatação com Black (backend).
-- Usar linters (ESLint/Prettier) para o frontend.
-- Utilizar dicas de tipo em todas as funções (backend).
-- Documentar adequadamente todas as classes e funções.
+- **Testes Unitários (Backend):** Usar `pytest` e `pytest-asyncio`. Mockar dependências externas (APIs, `mem0ai`, DB para testes unitários).
+- **Testes de Integração (Backend):** Podem ser adicionados (requerem DB de teste).
+- **Frontend:** Considerar testes de componentes/integração (ex: com Testing Library).
+- **Qualidade:** PEP8/Black (Backend), ESLint/Prettier (Frontend), Type Hints (Backend).
+- **Documentação:** Docstrings (Google Style), READMEs, `docs/`, `memory-bank/` atualizados.
 
 ## Tecnologias e Dependências
 
-### Backend
-
-```
-fastapi # Usar versão mais recente ou especificar >=1.0
-uvicorn # Usar versão mais recente ou especificar >=0.22.0
-pydantic # Usar versão mais recente ou especificar >=2.0.0
-openai-agents # Usar versão mais recente (ex: >=0.0.7)
-python-dotenv>=1.0.0
-pytest>=7.3.1
-pytest-asyncio # Necessário para testes async com pytest
-httpx>=0.24.0 # Para chamadas HTTP assíncronas (incluindo API de clima)
-# requests # Alternativa síncrona, mas httpx é preferível para async
-# sqlalchemy>=2.0.0  # Opcional
-# python-jose>=3.3.0 # Opcional
-```
-
-### Frontend
-
-```
-react>=18.0.0
-react-dom>=18.0.0
-react-scripts>=5.0.0
-tailwindcss>=3.3.0
-# shadcn/ui (via CLI)
-# lucide-react 
-# framer-motion (Opcional)
-# @radix-ui/* (Dependências do shadcn)
-# class-variance-authority 
-# clsx 
-# tailwind-merge 
-# tailwindcss-animate 
-# axios (Opcional)
-```
+*Refere-se ao `backend/requirements.txt` e `frontend/package.json` atualizados.*

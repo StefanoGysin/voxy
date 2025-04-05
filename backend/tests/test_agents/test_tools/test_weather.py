@@ -2,10 +2,12 @@
 import pytest
 import httpx
 from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import patch
 
 # Importar a função auxiliar e as configurações
-from backend.app.agents.tools.weather import _get_weather_logic
-from backend.app.core.config import settings
+from app.agents.tools.weather import _get_weather_logic
+# Importar o módulo weather para patching
+from app.agents.tools import weather as weather_tool_module
 
 # --- Fixtures e Mocks ---
 
@@ -18,7 +20,8 @@ def mock_httpx_client(monkeypatch):
     # Para que o contexto `async with` funcione
     mock_client.__aenter__.return_value = mock_client 
     
-    monkeypatch.setattr("backend.app.agents.tools.weather.httpx.AsyncClient", lambda: mock_client)
+    # Patch no módulo weather
+    monkeypatch.setattr("app.agents.tools.weather.httpx.AsyncClient", lambda: mock_client)
     return mock_client, mock_response
 
 @pytest.fixture(autouse=True)
@@ -26,8 +29,10 @@ def mock_settings(monkeypatch):
     """Mocka as configurações para fornecer uma chave de API válida por padrão."""
     mock_settings_obj = MagicMock()
     mock_settings_obj.OPENWEATHERMAP_API_KEY = "fake_api_key"
-    monkeypatch.setattr("backend.app.agents.tools.weather.settings", mock_settings_obj)
-    return mock_settings_obj
+    mock_settings_obj.DEBUG = True # Habilitar DEBUG para logs nos testes
+    # CORRIGIR: Aplicar o patch no objeto settings DENTRO do módulo weather
+    monkeypatch.setattr(weather_tool_module, "settings", mock_settings_obj)
+    yield mock_settings_obj # Retorna o objeto mockado se necessário
 
 # --- Testes para _get_weather_logic --- 
 
@@ -119,7 +124,9 @@ async def test_get_weather_logic_other_http_error(mock_httpx_client):
     )
     
     result = await _get_weather_logic(city=city)
-    assert result == "Erro HTTP ao buscar o tempo: 500 - Internal Server Error"
+    # A mensagem correta para erro HTTP 500
+    expected_error_message = f"Ocorreu um erro técnico (500) ao buscar a previsão do tempo para {city}."
+    assert result == expected_error_message
 
 @pytest.mark.asyncio
 async def test_get_weather_logic_request_error(mock_httpx_client):
@@ -131,7 +138,45 @@ async def test_get_weather_logic_request_error(mock_httpx_client):
     mock_client.get.side_effect = httpx.RequestError("Connection refused")
     
     result = await _get_weather_logic(city=city)
-    assert result == "Erro de conexão ao buscar o tempo: Connection refused"
+    # Corrigir a mensagem de erro esperada
+    expected_error_message = f"Não foi possível conectar ao serviço de previsão do tempo para {city}."
+    assert result == expected_error_message
+
+@pytest.mark.asyncio
+async def test_get_weather_logic_http_error(mock_httpx_client):
+    """Testa o tratamento de erro HTTP genérico (não 404 ou 401)."""
+    mock_client, mock_response = mock_httpx_client
+    city = "Test City"
+    
+    # Simula um erro HTTP genérico (não 404 ou 401)
+    mock_response.status_code = 500
+    mock_response.text = "Internal Server Error"
+    # Usar MagicMock pois raise_for_status não é awaited
+    mock_response.raise_for_status = MagicMock(side_effect=httpx.HTTPStatusError(
+        "Server Error", request=MagicMock(), response=mock_response
+    ))
+    mock_client.get.return_value = mock_response
+    
+    result = await _get_weather_logic(city=city)
+    # A mensagem de erro esperada JÁ estava correta aqui
+    expected_error_message = f"Ocorreu um erro técnico (500) ao buscar a previsão do tempo para {city}."
+    assert result == expected_error_message
+    mock_client.get.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_get_weather_logic_connection_error(mock_settings):
+    """ Testa o tratamento de erro de conexão com a API. """
+    with patch('backend.app.agents.tools.weather.httpx.AsyncClient') as mock_async_client:
+        mock_client = AsyncMock()
+        mock_async_client.return_value.__aenter__.return_value = mock_client 
+        # Configura o mock get para levantar um RequestError
+        mock_client.get.side_effect = httpx.RequestError("Connection failed")
+        
+        result = await _get_weather_logic(city="Test City")
+        # A mensagem correta para erro de conexão
+        expected_error_message = f"Não foi possível conectar ao serviço de previsão do tempo para Test City."
+        assert result == expected_error_message
+        mock_client.get.assert_called_once()
 
 # Não precisamos mais dos testes originais que verificavam o valor fixo
 # def test_get_weather_logic_returns_fixed_string(): ...

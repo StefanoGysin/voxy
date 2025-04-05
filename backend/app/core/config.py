@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # Configurações OpenWeatherMap (Nova)
     OPENWEATHERMAP_API_KEY: Optional[str] = None
     
+    # Configurações Supabase (para Mem0)
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    SUPABASE_CONNECTION_STRING: Optional[str] = None
+    
     # Configurações CORS
     CORS_ORIGINS: List[str] = ["*"]
     

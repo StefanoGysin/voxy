@@ -9,6 +9,10 @@ from pydantic import BaseModel
 from ..agents.brain import process_message # Agora importa a versão async
 from typing import List, Optional
 
+# Importar dependência de autenticação e modelo User
+from app.core.security import get_current_user
+from app.db.models import User
+
 router = APIRouter()
 
 
@@ -30,21 +34,32 @@ class ChatHistoryItem(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(message: ChatMessage):
+async def chat(message: ChatMessage, current_user: User = Depends(get_current_user)):
     """
     Envia uma mensagem para o agente e retorna sua resposta.
-    Chama diretamente a função assíncrona process_message.
+    Requer autenticação do usuário.
     
     Args:
         message: A mensagem enviada pelo usuário.
+        current_user: O usuário autenticado (injetado pela dependência).
         
     Returns:
         A resposta do agente.
     """
     try:
-        # Chama diretamente a função assíncrona
-        response_content = await process_message(message.content)
+        # Log para verificar o usuário autenticado (opcional)
+        print(f"Recebida mensagem de: {current_user.username} (ID: {current_user.id})")
+        
+        # TODO: Passar user_id para process_message quando ela for adaptada
+        # Por agora, passamos apenas o conteúdo
+        # response_content = await process_message(message.content) 
+        # ATUALIZAR: Passar user_id
+        response_content = await process_message(message.content, user_id=current_user.id)
         return ChatResponse(response=response_content)
+    except ValueError as ve:
+        # Captura o erro específico se user_id não for passado para process_message
+        logger.error(f"Erro de valor em process_message: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         # Logar o erro real no backend seria útil aqui
         # import logging

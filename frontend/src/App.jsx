@@ -1,45 +1,110 @@
-import React from 'react';
-import ChatBox from './components/Chat/ChatBox'; // Corrigido caminho da importação
-import { sendMessage } from './services/api'; // Assume que api.js será copiado
+import React, { useState, useEffect, useRef } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'; // Added useNavigate
+import ChatBox from './components/Chat/ChatBox';
+import ChatInput from './components/Chat/ChatInput';
+import { sendMessage } from './services/api'; // Assuming you have this service
+import LoginPage from './pages/Auth/LoginPage'; // Import Login Page
+import RegisterPage from './pages/Auth/RegisterPage'; // Import Register Page
+import { useAuth } from './contexts/AuthContext'; // Import useAuth
+import { Button } from './components/ui/button'; // For Logout Button
 
 /**
  * Componente principal da aplicação Voxy.
- * Aplica layout base e integra o ChatBox.
+ * Aplica layout base, roteamento e integra o ChatBox.
  */
 function App() {
-  // Função wrapper para enviar mensagens, com tratamento de erro básico
-  const handleSendMessage = async (content) => {
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const chatBoxRef = useRef(null);
+  const { isAuthenticated, logout, token } = useAuth(); // Use context values
+  const navigate = useNavigate(); // For logout navigation
+
+  const handleSendMessage = async (inputValue) => {
+    if (!inputValue.trim()) return;
+    if (!token) { // Verifica se há token antes de enviar
+        console.error("No auth token found. Please login again.");
+        logout(); // Desloga se não houver token
+        return;
+    }
+
+    const userMessage = { role: 'user', content: inputValue };
+    setMessages((prevMessages) => [...prevMessages, userMessage]);
+    setIsLoading(true);
+
     try {
-      const response = await sendMessage(content);
-      return response; // Retorna a resposta do backend para o ChatBox
+      // TODO: Update sendMessage in api.js to actually use the token
+      const botResponseContent = await sendMessage(inputValue, token); // Passa o token
+      const botMessage = { role: 'assistant', content: botResponseContent };
+      setMessages((prevMessages) => [...prevMessages, botMessage]);
     } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
-      // Poderia retornar uma mensagem de erro específica para o ChatBox exibir
-      return `Erro: ${error.message || 'Não foi possível conectar ao servidor.'}`;
+      console.error("Failed to send message:", error);
+      // Se o erro for 401 (Unauthorized), desloga o usuário
+      if (error.message && error.message.includes("401")) { 
+          logout();
+          navigate('/login'); // Redireciona para login
+          setMessages((prevMessages) => [
+              ...prevMessages,
+              { role: 'assistant', content: 'Session expired. Please login again.' }
+          ]);
+      } else {
+          const errorMessageContent = `Error: ${error.message || 'Could not connect to the server.'}`;
+          const errorMessage = { role: 'assistant', content: errorMessageContent };
+          setMessages((prevMessages) => [...prevMessages, errorMessage]);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    // Auto-scroll to bottom
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  // Componente para a interface de Chat protegida
+  const ProtectedChatInterface = () => {
+      // Se não estiver autenticado, navega para login (double check)
+      if (!isAuthenticated) {
+          return <Navigate to="/login" replace />;
+      }
+      
+      return (
+        <div className="flex flex-col h-screen bg-background text-foreground">
+          <header className="bg-primary text-primary-foreground p-4 text-center text-lg font-semibold flex justify-between items-center">
+            <span>Voxy Chat</span>
+            <Button variant="destructive" onClick={() => { logout(); navigate('/login'); }}>Logout</Button>
+          </header>
+          <main className="flex-1 overflow-hidden">
+            <ChatBox messages={messages} chatBoxRef={chatBoxRef} />
+          </main>
+          <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+        </div>
+      );
+  };
+
   return (
-    // Layout principal: Tela cheia, flex column, cor de fundo do tema
-    <div className="flex flex-col h-screen bg-background text-foreground">
-      {/* Cabeçalho: Cor primária do tema, texto contrastante */}
-      <header className="bg-primary text-primary-foreground p-4">
-        <h1 className="text-2xl font-bold">Voxy</h1>
-        {/* <p className="text-sm opacity-80">Seu assistente inteligente</p> */}
-      </header>
+    <Routes>
+      {/* Rotas públicas */}
+      <Route 
+        path="/login" 
+        element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} 
+      />
+      <Route 
+        path="/register" 
+        element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} 
+      />
       
-      {/* Conteúdo Principal: Ocupa espaço restante, scrollavel se necessário */}
-      {/* Usamos container para centralizar e limitar largura em telas grandes */}
-      {/* Removida a div interna com bg-white/shadow, ChatBox cuidará disso */}
-      <main className="flex-1 overflow-hidden container mx-auto w-full p-4 md:p-6">
-         <ChatBox sendMessage={handleSendMessage} />
-      </main>
+      {/* Rota protegida */}
+      <Route 
+        path="/"
+        element={<ProtectedChatInterface />} // Usa o componente protegido
+      />
       
-      {/* Rodapé: Fundo padrão, borda superior, texto suave */}
-      <footer className="border-t border p-3 text-center text-muted-foreground text-sm">
-        Voxy &copy; {new Date().getFullYear()}
-      </footer>
-    </div>
+      {/* Redirecionamento para rotas não encontradas */}
+      <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />} />
+    </Routes>
   );
 }
 
