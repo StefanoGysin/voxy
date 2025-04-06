@@ -1,11 +1,13 @@
 from typing import Optional
 from sqlmodel import Field, SQLModel
+from pydantic import EmailStr, Field as PydanticField
 
 
 class UserBase(SQLModel):
     """ Modelo base com campos comuns, sem ID e sem segredos. """
-    username: str = Field(index=True, unique=True)
-    # Adicionar outros campos públicos se necessário (ex: email, full_name)
+    username: str = Field(index=True)
+    email: EmailStr = Field(unique=True, index=True)
+    # Adicionar outros campos públicos se necessário (ex: full_name)
 
 
 class User(UserBase, table=True):
@@ -18,7 +20,7 @@ class User(UserBase, table=True):
 
 class UserCreate(UserBase):
     """ Modelo Pydantic para criar um novo usuário (recebe senha). """
-    password: str
+    password: str = PydanticField(..., min_length=8)
 
 
 class UserRead(UserBase):

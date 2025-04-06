@@ -105,8 +105,8 @@ voxy/
 - **SQLModel**: ORM e validação de dados (inclui Pydantic, SQLAlchemy)
 - **`mem0ai`**: SDK para memória de longo prazo
 - **`pydantic-settings`**: Carregamento de configuração (.env)
-- **`passlib[bcrypt]`**: Hashing de senha (v1.7.4)
-- **`bcrypt`**: Dependência de hash (v3.2.0)
+- **`passlib[bcrypt]`**: Hashing de senha (**Nota:** Fixado em `passlib==1.7.4` devido a compatibilidade com `bcrypt`)
+- **`bcrypt`**: Dependência de hash (**Nota:** Fixado em `bcrypt==3.2.0`)
 - **`python-jose[cryptography]`**: Manipulação de JWT
 - **`psycopg2-binary`**: Driver PostgreSQL
 - **Pytest**: Para testes unitários
@@ -149,39 +149,22 @@ def get_weather(city: str) -> str:
 
 #### 2. Módulo de API
 
-- **chat.py**: Endpoints para comunicação com o agente (sem alterações necessárias para adicionar ferramentas ao agente).
+- **chat.py**: Endpoints para comunicação com o agente (protegido por autenticação).
+- **auth.py**: Endpoints para registro (`/register`, requer `username`, `email`, `password`) e login (`/token`, usa `email` como `username` no form).
 
-```python
-# Nenhuma mudança necessária aqui para a ferramenta
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
-from ..agents.brain import process_message
+#### 2.1 Autenticação e Banco de Dados (Correções e Detalhes)
 
-router = APIRouter()
-
-class ChatMessage(BaseModel):
-    content: str
-
-class ChatResponse(BaseModel):
-    response: str
-
-@router.post("/chat", response_model=ChatResponse)
-async def chat(message: ChatMessage):
-    """
-    Envia uma mensagem para o agente e retorna sua resposta.
-    Chama diretamente a função assíncrona process_message.
-    """
-    try:
-        response = await process_message(message.content)
-        return ChatResponse(response=response)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao processar mensagem: {str(e)}")
-```
+- **Retorno `/register`:** A rota `/register` retorna o schema `UserRead` (`id`, `username`, `email`).
+- **Gerenciamento de Sessão (`get_db`):** A dependência `get_db` original foi corrigida (commit explícito), mas nos testes, ela é substituída por uma fixture (`conftest.py::session`) que gerencia uma sessão isolada por teste com criação/rollback/drop de tabelas.
+- **Criação de Tabelas:** As tabelas do banco de dados (`user`) são criadas/removidas automaticamente pelos testes via fixture. Em produção, a criação ocorre via `SQLModel.metadata.create_all(engine)` em `main.py`.
 
 #### 3. Módulo de Core
 
 - **config.py**: Configurações do aplicativo
 - **security.py**: Funcionalidades de segurança (se necessário)
+- **Hashing de Senha:** `passlib` com `bcrypt` (**Atenção:** Versões `passlib==1.7.4` e `bcrypt==3.2.0` devem ser usadas devido a problemas de compatibilidade reportados com versões mais recentes).
+- **Dependências:** Manter atualizadas, **exceto** `passlib` e `bcrypt` que devem permanecer nas versões especificadas até que a compatibilidade seja confirmada.
+- **Limitação de Taxa:** Considerar adicionar à API.
 
 #### 4. Módulo de Banco de Dados (opcional)
 
@@ -284,18 +267,15 @@ export const sendMessage = async (content) => {
 
 *As fases concluídas foram removidas para brevidade. O estado atual reflete a conclusão da Fase 9.*
 
-**Próximos Passos (Pós-Fase 9):**
+**Próximos Passos (Pós-Refatoração `username`):**
 
 1.  **Refinamento e Testes (Backend):**
-    *   [ ] Escrever testes unitários/integração para autenticação (`api/auth.py`, `core/security.py`).
-    *   [ ] Adaptar testes existentes do agente (`tests/test_agents/`) para incluir contexto de autenticação (mock `get_current_user` ou similar).
     *   [ ] Considerar uso de Alembic para futuras migrações de banco de dados.
+    *   [ ] Configurar e usar um banco de dados de teste dedicado (ver `TASK.md`).
+    *   [ ] Revisar e potencialmente adicionar mais casos de teste para autenticação e agente.
 2.  **Documentação:**
-    *   [x] Atualizar `memory-bank/*` (Concluído)
-    *   [x] Atualizar `docs/*` (architecture, goals, tech_stack) (Concluído)
-    *   [x] Atualizar `README.md` principal (Concluído)
-    *   [x] Atualizar `PLANNING.md` (Esta atualização)
-    *   [ ] Criar READMEs específicos para `backend/` e `frontend/` (Opcional)
+    *   [ ] Revisar `PLANNING.md` e `backend/README.md` para garantir consistência final.
+    *   [ ] Atualizar outros `docs/*` se necessário.
 3.  **Melhorias (Opcional / Futuro):**
     *   [ ] Frontend: Validação de formulário mais robusta.
     *   [ ] Frontend: Melhor feedback visual (loading, success, error).
@@ -314,11 +294,7 @@ export const sendMessage = async (content) => {
 
 ## Teste e Qualidade de Código
 
-- **Testes Unitários (Backend):** Usar `pytest` e `pytest-asyncio`. Mockar dependências externas (APIs, `mem0ai`, DB para testes unitários).
-- **Testes de Integração (Backend):** Podem ser adicionados (requerem DB de teste).
-- **Frontend:** Considerar testes de componentes/integração (ex: com Testing Library).
-- **Qualidade:** PEP8/Black (Backend), ESLint/Prettier (Frontend), Type Hints (Backend).
-- **Documentação:** Docstrings (Google Style), READMEs, `docs/`, `memory-bank/` atualizados.
+- **Testes Unitários/Integração (Backend):** Usar `pytest` e `pytest-asyncio`. A configuração de teste (`conftest.py`) agora inclui uma fixture `session` que gerencia o ciclo de vida do banco de dados (create/drop/rollback) para cada teste, garantindo isolamento. Testes de API usam `httpx.AsyncClient` com `ASGITransport`.
 
 ## Tecnologias e Dependências
 

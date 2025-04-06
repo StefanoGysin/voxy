@@ -51,13 +51,10 @@ def get_password_hash(password: str) -> str:
 # --- Funções JWT --- 
 
 ALGORITHM = settings.ALGORITHM
-SECRET_KEY = settings.SECRET_KEY # Chave secreta do .env
+SECRET_KEY = settings.SECRET_KEY
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
-# Define o esquema de segurança OAuth2 apontando para a rota de login
-# IMPORTANTE: A URL deve corresponder EXATAMENTE à rota do seu endpoint de login
-# Se o router de auth for incluído com prefixo, ajuste aqui (ex: "/auth/login")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login") 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """
@@ -72,16 +69,42 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         str: O token JWT codificado.
     """
     to_encode = data.copy()
+    now = datetime.now(timezone.utc)
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = now + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-# Função para decodificar/validar token será adicionada depois (para get_current_user)
+def decode_access_token(token: str) -> TokenData | None:
+    """
+    Decodifica um token JWT e retorna os dados do payload se válido.
+
+    Args:
+        token (str): O token JWT a ser decodificado.
+
+    Returns:
+        TokenData | None: Um objeto TokenData com o username (sub) se o token
+                          for válido e não expirado, None caso contrário.
+    """
+    try:
+        payload = jwt.decode(
+            token, SECRET_KEY, algorithms=[ALGORITHM]
+        )
+        username: str | None = payload.get("sub")
+        if username is None:
+            # Token válido, mas sem 'sub' não é esperado
+            return None 
+        # TODO: Adicionar validação de expiração se 'decode' não fizer por padrão
+        # com as opções corretas, mas geralmente faz.
+        token_data = TokenData(username=username)
+        return token_data
+    except JWTError: 
+        # Token inválido (formato, assinatura, expiração, etc.)
+        return None
 
 async def get_current_user(
     session: Session = Depends(get_db), 
@@ -90,7 +113,8 @@ async def get_current_user(
     """
     Dependência FastAPI para obter o usuário atual a partir do token JWT.
 
-    Decodifica o token, valida o username (sub) e busca o usuário no DB.
+    Decodifica o token usando decode_access_token, valida o username (sub)
+    e busca o usuário no DB.
 
     Args:
         session (Session): Sessão do banco de dados injetada.
@@ -107,21 +131,16 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try:
-        payload = jwt.decode(
-            token, SECRET_KEY, algorithms=[ALGORITHM]
-        )
-        username: str | None = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except JWTError:
+    
+    token_data = decode_access_token(token)
+    if token_data is None or token_data.username is None:
         raise credentials_exception
     
     # Buscar usuário no banco de dados
-    # TODO: Idealmente usar uma função crud (ex: crud.user.get_user_by_username)
+    # ATENÇÃO: O modelo User usa 'email' como identificador único, não 'username'.
+    # O token 'sub' deve conter o email.
     user = session.exec(
-        select(User).where(User.username == token_data.username)
+        select(User).where(User.email == token_data.username)
     ).first()
     
     if user is None:

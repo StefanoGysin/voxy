@@ -2,35 +2,23 @@
 
 ## Pendentes
 
-### **Fase 9: Autenticação e Memória Proativa/Personalizada (Prioridade: Alta -> Em Andamento / Refinamento)**
+### **Refatoração: Incluir `username` no Registro (Prioridade: Alta) -> CONCLUÍDO** ✅ 2024-04-06
+*Descoberto devido a erro 422 nos testes de registro.*
+1.  [x] **(Análise/Ajuste) Modelos (`app/db/models.py`):** Verificar/ajustar modelos Pydantic (`UserCreate`) e SQLModel (`User`, `UserRead`) para incluir `username`. ✅ 2024-04-06
+2.  [x] **(Verificação/Ajuste) Endpoint `/register` (`app/api/auth.py`):** Confirmar uso do modelo correto e que `username` é extraído e salvo. Ajustar verificação de duplicidade para `email`. ✅ 2024-04-06
+3.  [x] **(Ajuste) Testes de API (`tests/test_api/test_auth.py`):** Incluir `username` nos payloads de teste para `/register` e ajustar asserções. Usar dados únicos. Corrigir status code esperado 404 vs 401 e mensagem. ✅ 2024-04-06
+4.  [x] **(Ajuste) Testes Core (`tests/test_core/test_security.py`):** Atualizar helper `register_and_login_user` para incluir `username`. Usar dados únicos. Corrigir asserção de mensagem 401. ✅ 2024-04-06
+5.  [x] **(Atualização) Documentação:** Atualizar `PLANNING.md`, `backend/README.md` e `memory-bank`. ✅ 2024-04-06
+6.  [x] **(Verificação) Executar Testes:** Rodar `python -m pytest backend` -> 54 PASSED! ✅ 2024-04-06
 
-1.  **Backend - Autenticação (Refinamento):**
-    *   [x] **Definir Modelo de Usuário:** Criar modelo `User` em `db/models.py` (SQLModel/SQLAlchemy). ✅ 2024-04-04
-    *   [x] **Implementar Hashing de Senha:** Adicionar `passlib[bcrypt]`; usar para hash/verify. (Fixado com `passlib==1.7.4`, `bcrypt==3.2.0`) ✅ 2024-04-05
-    *   [x] **Criar Endpoints de Autenticação:** `/register` e `/login` (ou `/token`) em `api/auth.py`. (Corrigido problema de `ROLLBACK`) ✅ 2024-04-05
-    *   [x] **Implementar Lógica JWT:** Configurar `python-jose`; criar/decodificar tokens. ✅ 2024-04-04
-    *   [x] **Criar Dependência de Autenticação:** `get_current_user` em `core/security.py`. ✅ 2024-04-04
-    *   [x] **Garantir funcionamento de `db/session.py` e criação da tabela `user`.** (Corrigido problema de `ROLLBACK` no `get_db`) ✅ 2024-04-05
-    *   [ ] **Atualizar Banco de Dados:** Configurar Alembic ou criar tabelas via ORM. (Tabelas criadas via `create_all`, mas Alembic seria melhor para futuras migrações)
-    *   [ ] **Escrever testes específicos para autenticação.**
-2.  **Backend - Adaptação da Memória:**
-    *   [x] **Adaptar `remember_info`/`recall_info` e `Mem0Manager` para usar `user_id`.** ✅ 2024-04-04
-    *   [x] **Atualizar `Mem0Manager`:** Usar `user_id` nas chamadas `.add()`/`.search()` (Feito via contextvars). ✅ 2024-04-04
-    *   [x] **Revisar/Atualizar Testes de Memória:** Incluir `user_id`. ✅ 2024-04-04
-3.  **Backend - Agente e Chat:**
-    *   [x] **Proteger endpoint `/api/chat` com `Depends(get_current_user)`.** ✅ 2024-04-04
-    *   [x] **Implementar fluxo de passagem do `user_id` para as ferramentas.** ✅ 2024-04-04
-    *   [ ] **Aprimorar Instruções do Agente (`brain.py`):** Para memorização proativa/por usuário.
-    *   [ ] **Atualizar Testes do Agente (`brain`):** Adaptar testes para autenticação/contexto.
-4.  **Frontend - Autenticação e UI (Funcional):**
-    *   [x] **Criar Componentes de Autenticação:** Login/Registro (React). ✅ 2024-04-05
-    *   [x] **Implementar Fluxo de Autenticação:** Chamadas API, gerenciamento de estado (`AuthContext`), token (`localStorage`), logout. ✅ 2024-04-05
-    *   [x] **Proteger Rota do Chat:** Configurar roteamento condicional em `App.jsx`. ✅ 2024-04-05
-    *   [x] **Enviar Token com Requisições:** Modificar `sendMessage` para incluir `Authorization: Bearer <token>`. ✅ 2024-04-05
-5.  **Documentação (Sub-tarefa da Fase 9):**
-    *   [x] Atualizar `memory-bank/*` (activeContext, progress, techContext, systemPatterns). ✅ 2024-04-05
-    *   [ ] Atualizar `PLANNING.md` (dependências, `get_db`, `/register` return).
-    *   [ ] Atualizar `README.md` (principal e backend) com notas sobre versões `passlib`/`bcrypt`.
+### **Fase 9: Autenticação e Memória Proativa/Personalizada (Refinamento Restante)**
+*As tarefas específicas de Auth/Testes foram concluídas ou incorporadas na refatoração acima.*
+
+1.  **Backend - Refinamento Restante:**
+    *   [ ] Considerar uso de Alembic para migrações de banco de dados. (Próximo Passo)
+    *   [ ] **Banco de Dados de Teste:** Configurar um banco de dados de teste dedicado (ex: SQLite ou outro DB Postgres) e ajustar fixtures (`conftest.py`) para usá-lo, garantindo isolamento total do ambiente de desenvolvimento.
+2.  **Documentação (Finalização Fase 9):**
+    *   [ ] Revisar/Atualizar `PLANNING.md` e `backend/README.md` com estado final da Fase 9/Refatoração.
     *   [ ] Atualizar outros `docs/*` se necessário.
 
 ### Configuração Inicial (Concluído)
@@ -91,9 +79,7 @@
 - [x] Adicionar comentários claros no código
 
 ## Em Andamento
-- [ ] **Testes Manuais:** Testar fluxo completo de autenticação e chat autenticado. (Próximo Passo)
-- [ ] **Backend - Refinamento (Fase 9):** Testes de autenticação, Aprimorar Instruções Agente.
-- [ ] **Documentação (Fase 9):** Atualizar `PLANNING.md`, `README.md`.
+*Nenhuma tarefa em andamento no momento.*
 
 ## Concluídas
 - [x] Definição do escopo inicial do projeto
@@ -137,19 +123,15 @@
 - [x] **Backend: Correção do prefixo da rota de autenticação (`/api/auth`).** ✅ 2024-04-05
 - [x] **Backend: Correção da incompatibilidade `passlib`/`bcrypt` (fixando versões).** ✅ 2024-04-05
 - [x] **Backend: Correção do `ROLLBACK` na rota `/register` (retorno `UserRead`).** ✅ 2024-04-05
-- [x] **Backend: Correção do `ROLLBACK` na rota `/login` (commit explícito em `get_db`).** ✅ 2024-04-05
-- [x] **Frontend: Implementação das chamadas API de autenticação (`registerUser`, `loginUser`).** ✅ 2024-04-05
-- [x] **Frontend: Implementação do `AuthContext` e `AuthProvider`.** ✅ 2024-04-05
-- [x] **Frontend: Integração das páginas de Login/Registro com `AuthContext`.** ✅ 2024-04-05
-- [x] **Frontend: Proteção de rotas e Logout usando `AuthContext`.** ✅ 2024-04-05
-- [x] **Frontend: Envio do token JWT no cabeçalho `Authorization`.** ✅ 2024-04-05
+- [x] **Backend: Correção do `ROLLBACK` na rota `/login`
+- [x] Refatoração: Incluir `username` no Registro (Análise Modelos, Ajuste Endpoint, Ajuste Testes API/Core, Documentação, Verificação Testes). ✅ 2024-04-06
+- [x] Correção de erros de teste (`TypeError` httpx, `AttributeError` TokenData, `PytestWarning` asyncio, `503` DB connection, `422` username missing, `400` email duplicate test logic, `404/401` login logic, `ImportError` email-validator). ✅ 2024-04-06
+- [x] Refatoração da fixture de teste de banco de dados (`conftest.py`) para usar sessão dedicada com create/drop tables e rollback. ✅ 2024-04-06
 
 ## Descoberto Durante o Trabalho
-- [x] Problema inicial com `dlx` vs `npx`. (Resolvido)
-- [x] Problema inicial com nome do pacote `shadcn-ui` vs `shadcn`. (Resolvido)
-- [x] Necessidade de rodar `init` do `shadcn` antes do `add`. (Resolvido)
-- [x] Necessidade de configurar `tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json` para alias `@/`. (Resolvido)
-- [x] **Incompatibilidade de versão entre `passlib` e `bcrypt` no ambiente.** (Resolvido fixando `passlib==1.7.4`, `bcrypt==3.2.0`) ✅ 2024-04-05
-- [x] **`ROLLBACK` inesperado na rota `/register` devido a tipo de retorno vs `response_model`.** (Resolvido retornando `UserRead`) ✅ 2024-04-05
-- [x] **`ROLLBACK` inesperado na rota `/login` devido ao gerenciamento de commit/sessão na dependência `get_db`.** (Resolvido com `commit` explícito pós-`yield`) ✅ 2024-04-05
-- [x] **Prefixo incorreto na inclusão do `auth_router` em `main.py`.** (Resolvido) ✅ 2024-04-05
+*   [x] Erro `422 Unprocessable Entity` nos testes de registro devido à falta do campo `username`. (Resolvido) ✅ 2024-04-06
+*   [x] Falha no teste de email duplicado devido ao isolamento de transação por chamada de API na fixture de teste inicial. (Resolvido com fixture de sessão dedicada) ✅ 2024-04-06
+*   [x] Falha nos testes de login devido a dados não persistentes entre chamadas na mesma função de teste (Resolvido com fixture de sessão dedicada). ✅ 2024-04-06
+*   [x] Rota de login incorreta (`/login` vs `/token`). (Resolvido) ✅ 2024-04-06
+*   [x] Lógica incorreta para erro 404/401 no login. (Resolvido) ✅ 2024-04-06
+*   [x] `ImportError: email-validator is not installed`. (Resolvido) ✅ 2024-04-06

@@ -32,67 +32,80 @@ async def register_new_user(
     Registra um novo usuário no sistema.
     """
     # TODO: Refatorar a lógica CRUD para um módulo app.crud.user
-    # Verificar se o usuário já existe
+    # Verificar se o usuário já existe pelo EMAIL (que é único)
     existing_user = session.exec(
-        select(User).where(User.username == user_in.username)
+        select(User).where(User.email == user_in.email) # Mudar para User.email
     ).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered",
+            # Mensagem de erro mais precisa
+            detail="Email already registered", 
         )
     
     # Criar hash da senha
     hashed_password = get_password_hash(user_in.password)
     
-    # Criar novo objeto User (sem a senha original)
-    # Usamos **user_in.model_dump() para pegar os campos de UserBase
-    new_user = User(**user_in.model_dump(), hashed_password=hashed_password)
+    # Criar novo objeto User (incluirá username e email de user_in)
+    # Excluir a senha do dump para não tentar salvar no modelo User
+    user_data = user_in.model_dump(exclude={"password"})
+    new_user = User(**user_data, hashed_password=hashed_password)
     
-    # Adicionar e salvar no banco de dados
+    # Adicionar ao banco de dados (SEM commit ou refresh aqui)
+    # A fixture override_get_db gerenciará a transação.
     session.add(new_user)
-    session.commit()
-    session.refresh(new_user)
+    # session.commit() # REMOVIDO
+    # session.refresh(new_user) # REMOVIDO
+
+    # SQLModel ainda não tem o usuário com ID aqui, pois o commit não ocorreu.
+    # Para retornar o UserRead com ID, precisamos fazer flush para obter o ID
+    # antes do rollback da fixture.
+    session.flush()
+    session.refresh(new_user) # Agora o refresh funciona após o flush
     
-    # Retorna explicitamente um objeto UserRead para corresponder ao response_model
-    # Isso evita que a senha hasheada seja incluída na resposta e previne
-    # a falha de validação que causa o ROLLBACK.
+    # Retorna UserRead validado
+    # Precisamos garantir que o objeto retornado não expire após a sessão fechar
+    # model_validate pode lidar com isso, mas verificar se há problemas
     return UserRead.model_validate(new_user)
 
 
-@router.post("/login", response_model=Token) # Definir response_model como Token
+@router.post("/token", response_model=Token)
 async def login_for_access_token(
     *, 
     session: Session = Depends(get_db), 
     form_data: OAuth2PasswordRequestForm = Depends()
-) -> Token: # Mudar tipo de retorno para Token
+) -> Token: 
     """
     Autentica um usuário e retorna um token de acesso (JWT).
-    Usa OAuth2PasswordRequestForm para receber username e password.
+    Usa OAuth2PasswordRequestForm para receber username (neste caso, o email) e password.
+    Corresponde à URL definida no OAuth2PasswordBearer.
     """
-    # TODO: Refatorar a lógica CRUD para um módulo app.crud.user
-    # Buscar usuário pelo username
+    # Buscar usuário pelo EMAIL
     user = session.exec(
-        select(User).where(User.username == form_data.username)
+        select(User).where(User.email == form_data.username)
     ).first()
     
-    # Verificar se o usuário existe e a senha está correta
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    # 1. Verificar se o usuário existe
+    if not user:
+        raise HTTPException(
+            # Status correto se usuário não encontrado
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="User not found",
+            # Não incluir WWW-Authenticate para 404
+        )
+
+    # 2. Verificar se a senha está correta (só se o usuário existe)
+    if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"}, # Necessário para 401
+            detail="Incorrect email or password", 
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
     # Gerar e retornar token JWT
-    # Usar as configurações padrão para expiração
     access_token = create_access_token(
-        data={"sub": user.username} # "sub" é o campo padrão para o identificador do sujeito
-        # expires_delta pode ser passado aqui se necessário
+        data={"sub": user.email}
     )
     return Token(access_token=access_token, token_type="bearer")
-    
-    # Placeholder antigo removido
-    # return {"message": "Login successful (token generation pending)", "username": user.username}
 
 # TODO: Adicionar este router ao app principal em main.py 

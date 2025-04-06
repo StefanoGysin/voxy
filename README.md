@@ -38,103 +38,14 @@ O projeto Voxy utiliza o OpenAI Agents SDK para criar um assistente inteligente 
 - Chave de API da OpenAI
 - Chave de API do OpenWeatherMap
 
-### Configuração do Backend
+## Backend
 
-1.  Clone o repositório.
-2.  Navegue até a pasta `backend`.
-3.  Crie e ative um ambiente virtual Python.
-4.  Instale as dependências:
-    ```bash
-    pip install -r requirements.txt
-    ```
-    *Nota: `requirements.txt` inclui `passlib==1.7.4` e `bcrypt==3.2.0` fixos por questões de compatibilidade.*
-5.  Crie um arquivo `.env` a partir de `backend/.env.example`.
-6.  **Edite o arquivo `.env` e preencha TODAS as variáveis:**
-    *   `OPENAI_API_KEY`: Sua chave OpenAI.
-    *   `OPENWEATHERMAP_API_KEY`: Sua chave OpenWeatherMap.
-    *   `SUPABASE_CONNECTION_STRING`: A **Connection String** do seu banco de dados Supabase (formato `postgresql://postgres:[YOUR-PASSWORD]@[AWS-REGION].pooler.supabase.com:6543/postgres?pgbouncer=true`). Você encontra na seção Database -> Settings -> Connection string do seu projeto Supabase.
-    *   `SECRET_KEY`: Uma string longa e aleatória para assinar os tokens JWT (ex: gerada com `openssl rand -hex 32`).
-    *   `ALGORITHM`: O algoritmo JWT (geralmente `HS256`).
-    *   `ACCESS_TOKEN_EXPIRE_MINUTES`: Tempo de expiração do token em minutos (ex: `30`).
-7.  Execute o servidor de desenvolvimento:
-    ```bash
-    uvicorn app.main:app --reload
-    ```
-    O backend estará disponível em `http://localhost:8000`.
+O backend é construído com FastAPI e Python. Ele fornece a API para o frontend, gerencia o agente inteligente, a autenticação e a memória.
 
-### Configuração do Frontend
+➡️ **Consulte o [README do Backend](./backend/README.md) para instruções detalhadas de configuração e execução.**
 
-1.  Navegue até a pasta `frontend`.
-2.  Instale as dependências:
-    ```bash
-    npm install
-    ```
-3.  (Opcional) Crie um arquivo `.env` em `frontend/` se precisar sobrescrever a URL da API padrão (`http://localhost:8000/api`). Veja `frontend/.env.example`.
-4.  Execute o servidor de desenvolvimento:
-    ```bash
-    npm run dev
-    ```
-    O frontend estará disponível em um endereço como `http://localhost:5173` (verifique a saída do terminal).
+**⚠️ Nota Importante sobre Dependências:** O backend requer versões específicas de `passlib` (1.7.4) e `bcrypt` (3.2.0). Consulte o README do backend para mais detalhes.
 
-## Uso
+## Frontend
 
-1.  Acesse o frontend no seu navegador.
-2.  Você será redirecionado para a página de Login.
-3.  **Registre uma nova conta** ou faça login com uma conta existente.
-4.  Após o login, você será direcionado para a interface de chat.
-5.  Converse com Voxy! Tente pedir para ele:
-    *   Lembrar de algo: "Lembre-se que minha cor favorita é roxo."
-    *   Verificar o clima: "Qual o tempo em Londres?"
-    *   Perguntar sobre o que ele lembra: "Qual minha cor favorita?"
-
-## Executando os Testes (Backend)
-
-1.  Certifique-se de estar na pasta `backend` com o ambiente virtual ativado.
-2.  Execute o Pytest:
-    ```bash
-    python -m pytest
-    ```
-    *Nota: Alguns testes podem depender de variáveis de ambiente configuradas (ex: para `mem0`). Pode ser necessário configurar um DB de teste ou usar mocks mais extensos.*
-
-## Estrutura do Projeto
-
-```
-voxy/
-├── backend/
-│   ├── app/
-│   │   ├── agents/       # Agente Brain, Ferramentas (clima, memória)
-│   │   ├── api/          # Endpoints (chat, auth)
-│   │   ├── core/         # Configuração, Segurança (JWT)
-│   │   ├── db/           # Modelos (User), Sessão DB
-│   │   ├── memory/       # Gerenciador Mem0
-│   │   └── main.py       # App FastAPI
-│   ├── tests/            # Testes Pytest
-│   ├── .env.example
-│   └── requirements.txt
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/   # UI (Chat, Auth, Layout)
-│   │   ├── contexts/     # AuthContext
-│   │   ├── hooks/
-│   │   ├── lib/          # Utilitários (shadcn)
-│   │   ├── pages/        # Páginas (Login, Register, ChatPage)
-│   │   ├── services/     # api.js (fetch)
-│   │   └── App.jsx       # Roteamento Principal
-│   ├── .env.example
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
-├── memory-bank/          # Documentação interna para IA
-├── docs/                 # Documentação geral (arquitetura, etc.)
-├── .gitignore
-└── README.md
-```
-
-## Contribuindo
-
-Consulte `PLANNING.md` e `TASK.md` na pasta `docs` e os arquivos no `memory-bank`.
-
-## Licença
-
-[MIT](LICENSE) 
+1.  Navegue até a pasta `

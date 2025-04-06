@@ -8,77 +8,14 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from app.agents.brain import VoxyBrain, process_message, brain_agent
 from app.agents.tools.weather import get_weather
 from app.agents.tools.memory_tools import remember_info, recall_info
-import logging # Adicionar import de logging
+import logging
 
-# Configurar logging para testes (opcional, mas útil)
-# logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__) # Usar logger
+logger = logging.getLogger(__name__)
 
-# Mock assíncrono para o OpenAI Agents SDK
-class MockAsyncRunnerResult:
-    def __init__(self, output):
-        self.final_output = output
-
-async def mock_async_runner_run(agent, message):
-    # Simula alguma operação assíncrona (opcional)
-    await asyncio.sleep(0)
-    logger.debug(f"mock_async_runner_run: Recebido agent='{agent.name}', message='{message[:50]}...'")
-    
-    # Simula escolha de ferramenta pelo LLM baseado em palavras-chave
-    lower_message = message.lower()
-    tool_name = None
-    tool_kwargs = {}
-    tool_response = "Default Tool Response"
-
-    if 'tempo em' in lower_message:
-        city_match = message.split('tempo em ')[-1].split('?')[0].strip()
-        tool_name = "get_weather"
-        tool_kwargs = {"city": city_match}
-        tool_response = f"Tempo ensolarado para {city_match} (mocked)" # Resposta simulada
-            
-    elif 'lembre-se que' in lower_message or 'memorize que' in lower_message:
-        content_match = message.split('que ', 1)[-1].strip()
-        tool_name = "remember_info"
-        tool_kwargs = {"content": content_match}
-        tool_response = "Ok, lembrei disso (mocked)" # Resposta simulada
-            
-    elif 'qual é' in lower_message or 'o que você lembra sobre' in lower_message:
-        query_match = message
-        tool_name = "recall_info"
-        tool_kwargs = {"query": query_match}
-        tool_response = "Lembrei disto: ... (mocked)" # Resposta simulada
-            
-    # Se uma ferramenta foi "escolhida", chama o método mockado no agente
-    if tool_name:
-        logger.debug(f"mock_async_runner_run: Simulando chamada a agent.call_tool_mock(tool_name='{tool_name}', kwargs={tool_kwargs})")
-        # Chama o método mockado no MockAgent
-        await agent.call_tool_mock(tool_name=tool_name, **tool_kwargs)
-        # Retorna uma resposta simulada que viria após a execução da ferramenta
-        return MockAsyncRunnerResult(f"[Tool Response] {tool_response}")
-    else:
-        # Resposta padrão se nenhuma ferramenta for "acionada"
-        logger.debug(f"mock_async_runner_run: Nenhuma ferramenta acionada. Retornando resposta padrão.")
-        return MockAsyncRunnerResult("Mocked default async response")
-
-class MockAgent:
-    def __init__(self, name, instructions, tools):
-        self.name = name
-        self.instructions = instructions
-        self.tools = tools
-        # Adiciona um mock para simular a chamada de ferramenta
-        self.call_tool_mock = AsyncMock()
-
-@pytest.fixture()
-def mock_openai_sdk(monkeypatch):
-    """Aplica mocks APENAS ao Agent e Runner.run."""
-    monkeypatch.setattr("app.agents.brain.Agent", MockAgent)
-    monkeypatch.setattr("app.agents.brain.Runner.run", mock_async_runner_run)
-
-# Mock SDK OpenAI Agents (simplificado)
 # Fixture para mockar o Runner.run
 @pytest.fixture
 def mock_agent_runner(monkeypatch):
-    """ Mocka a função Runner.run para testes. """
+    """ Mocka a função Runner.run para testes unitários de process_message. """
     # Mock para o objeto de resultado retornado por Runner.run
     mock_run_result = MagicMock()
     mock_run_result.final_output = "Resposta final mockada pelo Runner"
@@ -115,12 +52,13 @@ async def test_voxy_brain_initialization_default(voxy_brain_instance):
     logger.debug(f"VoxyBrain inicializado com ferramentas: {[getattr(t, '__name__', repr(t)) for t in brain.tools]}")
 
 @pytest.mark.asyncio
-async def test_voxy_brain_custom_instructions(mock_agent_runner):
+async def test_voxy_brain_custom_instructions(voxy_brain_instance):
     """
     Testa a inicialização do VoxyBrain com instruções personalizadas.
     """
     logger.debug("Iniciando test_voxy_brain_custom_instructions")
     custom_instructions = "Instruções personalizadas."
+    # Criar instância dentro do teste para instruções customizadas
     brain = VoxyBrain(instructions=custom_instructions)
     # Verificar instruções diretamente
     assert brain.instructions == custom_instructions
@@ -130,21 +68,22 @@ async def test_voxy_brain_custom_instructions(mock_agent_runner):
 @pytest.mark.asyncio
 async def test_process_message_calls_runner(mock_agent_runner, voxy_brain_instance):
     """
-    Testa se process_message chama Runner.run com os argumentos corretos.
+    Testa se a função wrapper process_message chama Runner.run com os args corretos.
     """
     logger.debug("Iniciando test_process_message_calls_runner")
     message = "Olá Voxy"
-    user_id = 123
+    user_id = 123 # ID de usuário de teste
     
-    # Chama a função de processamento
+    # Chama a função de processamento (a wrapper que define o contextvar)
     response = await process_message(message, user_id=user_id)
     
     # Verifica se Runner.run foi chamado uma vez
     mock_agent_runner.assert_called_once()
     
     # Verifica os argumentos passados para Runner.run
+    # A função process_message deve passar a instância global `brain_agent`
     args, kwargs = mock_agent_runner.call_args
-    assert args[0] is brain_agent # Verifica se passou a instância singleton global
+    assert args[0] is brain_agent 
     assert args[1] == message
     
     # Verifica se a resposta retornada é o final_output do mock
@@ -152,7 +91,7 @@ async def test_process_message_calls_runner(mock_agent_runner, voxy_brain_instan
     logger.debug("Runner.run chamado corretamente e resposta verificada.")
 
 @pytest.mark.asyncio
-async def test_process_message_no_user_id_raises_error(mock_agent_runner, voxy_brain_instance):
+async def test_process_message_no_user_id_raises_error(mock_agent_runner):
     """
     Testa se process_message levanta ValueError se user_id não for fornecido.
     """
