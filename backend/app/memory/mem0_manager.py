@@ -4,33 +4,29 @@ import functools
 import contextvars
 from typing import List, Dict, Any, Optional
 
-# Define o logger ANTES de tentar usá-lo no bloco de importação
-logger = logging.getLogger(__name__)
+# Define o logger ANTES de tentar usar ele no bloco de import
+# fmt: off
 
 # Importar Memory (síncrona)
+# Tenta importar de mem0 primeiro pois é o namespace mais provavel agora
 try:
-    # Tenta importar de mem0 primeiro, pois é o namespace mais provável agora
     from mem0 import Memory
 except ImportError:
+    # Fallback para mem0ai se o primeiro falhar
+    logger.warning("Falha ao importar Memory de 'mem0', tentando 'mem0ai'...")
     try:
-        # Fallback para mem0ai se o primeiro falhar
-        from mem0ai import Memory 
-        logger.warning("Importado 'Memory' de 'mem0ai'. Verifique se 'mem0' deveria ser o namespace.")
+        from mem0ai import Memory
     except ImportError:
-        logger.error("Falha ao importar 'Memory' de 'mem0' ou 'mem0ai'. Verifique a instalação.")
-        class Memory: # Placeholder
-            def __init__(self, *args, **kwargs): raise ImportError("Memory não pôde ser importado.")
-            @classmethod
-            def from_config(cls, *args, **kwargs): raise ImportError("Memory não pôde ser importado.")
+        logger.error("Falha ao importar Memory tanto de 'mem0' quanto de 'mem0ai'. A funcionalidade de memória não estará disponível.")
+        Memory = None # Define como None se não puder ser importado
+# fmt: on
 
-# Remover import desnecessário
-# try:
-#     from mem0 import AsyncMemoryClient
-# except ImportError:
-#     logger.error("Falha ao importar AsyncMemoryClient de 'mem0'...")
-#     class AsyncMemoryClient: ...
+# REMOVED try...except for AsyncMemoryClient block
 
 from ..core.config import settings
+
+# Adicionar a definição do logger
+logger = logging.getLogger(__name__)
 
 # Definir o ContextVar para o user_id atual
 # Usar Union[str, int] se o ID puder ser int
@@ -140,12 +136,20 @@ class Mem0Manager:
                 metadata=metadata
             )
             
+            logger.debug(f"[MEM0 MANAGER] Executando add_partial via run_in_executor...")
             result = await loop.run_in_executor(None, add_partial)
+            logger.debug(f"[MEM0 MANAGER] Retorno de run_in_executor: {result}")
             
-            logger.info(f"Entrada de memória adicionada via Memory.add: {str(result)}")
+            # Verificar explicitamente o resultado retornado por mem0.add
+            # A doc do OSS não é clara sobre o retorno de add, mas vamos assumir que pode não ser booleano
+            # Vamos considerar sucesso se não houver exceção por enquanto.
+            # A lógica original retornava True aqui, vamos manter por enquanto.
+            
+            logger.info(f"Entrada de memória adicionada via Memory.add (Resultado bruto: {str(result)})")
             return True 
         except Exception as e:
-            logger.exception(f"Erro ao adicionar entrada de memória via Memory.add: {e}", exc_info=True)
+            # Log mais detalhado da exceção
+            logger.exception(f"[MEM0 MANAGER] Exceção capturada ao tentar executar mem0.add para user_id='{user_id}': {e}", exc_info=True)
             return False
 
     async def search_memory_entries(self, query: str, agent_id: str = "voxy_brain", limit: int = 5) -> List[Dict[str, Any]]:
@@ -187,6 +191,43 @@ class Mem0Manager:
             logger.exception(f"Erro ao buscar entradas de memória via Memory.search: {e}", exc_info=True)
             return []
 
+    async def get_all_memory_entries(self, agent_id: str = "voxy_brain") -> List[Dict[str, Any]]:
+        """
+        Busca todas as entradas de memória de um usuário usando Memory.get_all (síncrono),
+        obtendo o user_id do contexto.
+        """
+        if self.mem0_instance is None:
+            logger.error("Instância Memory não foi criada. Não é possível buscar todas as memórias.")
+            return []
+
+        # Obter user_id do contextvar
+        user_id = current_user_id_var.get()
+        if user_id is None:
+            logger.error("Não foi possível obter o user_id do contexto. Abortando get_all_memory_entries.")
+            return []
+
+        try:
+            loop = asyncio.get_running_loop()
+            logger.debug(f"Buscando TODAS as memórias via Memory.get_all para user_id='{user_id}', agent_id='{agent_id}'...")
+
+            # Nota: Verificando a documentação rápida do mem0ai (OSS), get_all não parece aceitar agent_id.
+            # Vamos chamar sem ele por enquanto.
+            get_all_partial = functools.partial(
+                self.mem0_instance.get_all,
+                user_id=str(user_id)
+                # agent_id=agent_id # Removido, verificar se é suportado se necessário
+            )
+
+            results = await loop.run_in_executor(None, get_all_partial)
+
+            # Assumindo que Memory.get_all retorna diretamente a lista
+            logger.info(f"Busca de TODAS as memórias (Memory.get_all) retornou {len(results)} resultados.")
+            logger.debug(f"Resultados da busca get_all: {results}")
+            return results if results else [] # Retorna lista vazia se for None/vazio
+        except Exception as e:
+            logger.exception(f"Erro ao buscar todas as entradas de memória via Memory.get_all: {e}", exc_info=True)
+            return []
+
 # --- Padrões de Instanciação --- 
 
 # Opção 1: Instância Singleton global
@@ -200,6 +241,6 @@ def get_mem0_manager() -> Mem0Manager:
         mem0_manager_instance = Mem0Manager()
     return mem0_manager_instance
 
-# Opção 2: Injeção de Dependência (comentada)
+# REMOVED Option 2 comments
 
 # Por agora, vamos usar a Opção 1 (Singleton via get_mem0_manager) para simplicidade. 

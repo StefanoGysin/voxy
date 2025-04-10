@@ -8,9 +8,8 @@ import { registerUser } from '@/services/api';
 
 function RegisterPage() {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  // Optional: Add password confirmation field
-  // const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -18,26 +17,26 @@ function RegisterPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    // Optional: Add password confirmation validation
-    // if (password !== confirmPassword) {
-    //   setError("Passwords do not match.");
-    //   return;
-    // }
-    if (!username || !password) {
-      setError("Username and password are required.");
+    if (!username || !email || !password) {
+      setError("Username, email, and password are required.");
       return;
+    }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+        setError("Please enter a valid email address.");
+        return;
     }
     
     setIsLoading(true);
     setError(null);
     setSuccess(null);
-    console.log('Register attempt with:', { username });
+    console.log('Register attempt with:', { username, email });
 
     try {
-      const result = await registerUser(username, password);
+      const result = await registerUser(username, email, password);
       console.log("Registration API call successful:", result);
       setSuccess("Registration successful! Redirecting to login...");
       setUsername('');
+      setEmail('');
       setPassword('');
       
       setTimeout(() => {
@@ -45,8 +44,17 @@ function RegisterPage() {
       }, 2000);
 
     } catch (err) {
-      const errorMessage = err.message || 'Registration failed. Please try again.';
-      setError(errorMessage);
+      let displayError = 'Registration failed. Please try again.';
+      if (err && err.message) {
+        if (err.message.includes("already registered")) {
+            displayError = "An account with this email or username already exists.";
+        } else if (err.message.includes("validation error")) {
+            displayError = "Please check the entered information.";
+        } else if (!err.message.startsWith('[object')) {
+             displayError = err.message;
+        }
+      }
+      setError(displayError);
       console.error("Registration error:", err);
     } finally {
       setIsLoading(false);
@@ -72,6 +80,20 @@ function RegisterPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 disabled={isLoading}
+                autoComplete="username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={isLoading}
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -84,9 +106,9 @@ function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
+                autoComplete="new-password"
               />
             </div>
-            {/* Optional: Add confirm password field here */}
             {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
             {success && <p className="text-sm text-green-500 dark:text-green-400">{success}</p>}
             <Button type="submit" className="w-full" disabled={isLoading}>

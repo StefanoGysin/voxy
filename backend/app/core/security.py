@@ -1,17 +1,20 @@
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
-from typing import Any, Union
+from typing import Any, Union, Tuple
 
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlmodel import Session, select
+# Remover imports relacionados ao DB local se não forem mais usados para User
+# from sqlmodel import Session, select 
+# from sqlalchemy.ext.asyncio import AsyncSession
 
 # Importar configurações
 from .config import settings
 from .models import TokenData
-from ..db.models import User
-from ..db.session import get_db
+# Importar cliente Supabase e dependência
+from supabase import Client
+from app.db.supabase_client import get_supabase_client
 
 # Configura o contexto do passlib
 # Usaremos bcrypt como o esquema de hashing principal
@@ -79,52 +82,33 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def decode_access_token(token: str) -> TokenData | None:
-    """
-    Decodifica um token JWT e retorna os dados do payload se válido.
+# Remover decode_access_token, pois a validação será feita pelo Supabase
+# def decode_access_token(token: str) -> TokenData | None:
+#    ...
 
-    Args:
-        token (str): O token JWT a ser decodificado.
-
-    Returns:
-        TokenData | None: Um objeto TokenData com o username (sub) se o token
-                          for válido e não expirado, None caso contrário.
-    """
-    try:
-        payload = jwt.decode(
-            token, SECRET_KEY, algorithms=[ALGORITHM]
-        )
-        username: str | None = payload.get("sub")
-        if username is None:
-            # Token válido, mas sem 'sub' não é esperado
-            return None 
-        # TODO: Adicionar validação de expiração se 'decode' não fizer por padrão
-        # com as opções corretas, mas geralmente faz.
-        token_data = TokenData(username=username)
-        return token_data
-    except JWTError: 
-        # Token inválido (formato, assinatura, expiração, etc.)
-        return None
-
+# Modificar get_current_user para usar Supabase Auth
 async def get_current_user(
-    session: Session = Depends(get_db), 
+    # Remover dependência do DB local (session)
+    # session: AsyncSession = Depends(get_db),
+    supabase: Client = Depends(get_supabase_client), # Adicionar cliente Supabase
     token: str = Depends(oauth2_scheme)
-) -> User:
+#) -> Tuple[User, str]: # Modificar tipo de retorno
+) -> Any: # Retorna o objeto User do Supabase (ou Any para simplificar)
     """
-    Dependência FastAPI para obter o usuário atual a partir do token JWT.
-
-    Decodifica o token usando decode_access_token, valida o username (sub)
-    e busca o usuário no DB.
+    Dependência FastAPI para obter o usuário atual validando o token JWT
+    com o Supabase Auth.
 
     Args:
-        session (Session): Sessão do banco de dados injetada.
+        supabase (Client): Cliente Supabase injetado.
         token (str): Token JWT obtido do cabeçalho Authorization Bearer.
 
     Raises:
-        HTTPException (401): Se o token for inválido, expirado, ou o usuário não existir.
+        HTTPException (401): Se o token for inválido ou expirado.
 
     Returns:
-        User: O objeto User correspondente ao token.
+        Any: O objeto User retornado por supabase.auth.get_user(), que contém
+             informações do usuário autenticado (incluindo id/UUID).
+             Retornando Any por simplicidade, pode ser tipado melhor se necessário.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -132,19 +116,28 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    token_data = decode_access_token(token)
-    if token_data is None or token_data.username is None:
+    try:
+        print("Attempting to get user from Supabase Auth with token...")
+        # Validar o token e obter o usuário diretamente do Supabase Auth
+        response = supabase.auth.get_user(token)
+        print("Supabase Auth get_user response received.")
+        
+        # Verificar se o usuário foi retornado com sucesso
+        if response.user is None:
+            print(f"Supabase Auth get_user failed. Response: {response}")
+            raise credentials_exception
+        
+        print(f"Supabase Auth get_user successful. User ID: {response.user.id}")
+        # Retorna o objeto User do Supabase
+        # Este objeto contém o 'id' (UUID), 'email', 'aud', 'role', etc.
+        return response.user 
+
+    except Exception as e:
+        # Captura erros gerais (ex: token mal formatado, erro de rede, etc.)
+        print(f"Exception during Supabase get_user: {e}")
         raise credentials_exception
-    
-    # Buscar usuário no banco de dados
-    # ATENÇÃO: O modelo User usa 'email' como identificador único, não 'username'.
-    # O token 'sub' deve conter o email.
-    user = session.exec(
-        select(User).where(User.email == token_data.username)
-    ).first()
-    
-    if user is None:
-        raise credentials_exception
-    return user
+
+# A função antiga que buscava no DB local é removida ou comentada.
+# async def get_current_user_local_db(...)
 
 # Poderíamos adicionar get_current_active_user se tivéssemos um campo 'is_active' no modelo User 

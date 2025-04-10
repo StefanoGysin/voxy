@@ -34,10 +34,15 @@ class Settings(BaseSettings):
     # Configurações OpenWeatherMap (Nova)
     OPENWEATHERMAP_API_KEY: Optional[str] = None
     
-    # Configurações Supabase (para Mem0)
+    # Configurações Supabase (para Mem0 e Client)
     SUPABASE_URL: Optional[str] = None
+    SUPABASE_ANON_KEY: Optional[str] = None # Chave anônima pública
     SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
     SUPABASE_CONNECTION_STRING: Optional[str] = None
+    
+    # Configurações Banco de Dados (para SQLAlchemy/SQLModel)
+    # DATABASE_URL: str # Adicionar se usar DB principal além de Supabase para tabelas custom
+    TEST_DATABASE_URL: Optional[str] = None # Para o banco de dados de teste
     
     # Configurações CORS
     CORS_ORIGINS: List[str] = ["*"]

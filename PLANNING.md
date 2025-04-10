@@ -14,11 +14,15 @@ Voxy é um sistema de agentes inteligentes baseado no OpenAI Agents SDK, compost
 voxy/
 ├── backend/
 │   ├── app/
-│   │   ├── api/         # Endpoints FastAPI (chat, auth)
+│   │   ├── api/         # Endpoints FastAPI (Auth, Agent V1)
 │   │   │   ├── __init__.py
 │   │   │   ├── auth.py
-│   │   │   ├── chat.py
-│   │   │   └── routes.py
+│   │   │   ├── v1/
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── endpoints/
+│   │   │   │       ├── __init__.py
+│   │   │   │       └── agent.py # Endpoints API V1 (/api/v1/agent/...)
+│   │   │   └── routes.py    # (Se existir para registrar v1/auth)
 │   │   ├── agents/      # Lógica do Agente e Ferramentas
 │   │   │   ├── __init__.py
 │   │   │   ├── brain.py       # Agente principal (com instruções proativas)
@@ -109,6 +113,7 @@ voxy/
 - **`bcrypt`**: Dependência de hash (**Nota:** Fixado em `bcrypt==3.2.0`)
 - **`python-jose[cryptography]`**: Manipulação de JWT
 - **`psycopg2-binary`**: Driver PostgreSQL
+- **`supabase-py`**: Cliente Python para Supabase (Necessário adicionar)
 - **Pytest**: Para testes unitários
 - **`pytest-asyncio`**: Suporte async em testes
 - **`httpx`**: Cliente HTTP assíncrono
@@ -118,9 +123,17 @@ voxy/
 #### 1. Módulo de Agentes (`agents/`)
 
 - **`brain.py`**: Agente principal com instruções atualizadas (proatividade na memória).
+    - **Instruções Refinadas (Pós-Fase 11):** Incluirão orientações específicas sobre:
+        - Uso de `remember_info`: Quando salvar (preferências explícitas, fatos, tarefas, inferências de alta confiança), como salvar (classificar, formatar `information` string e `metadata` dict), priorizando qualidade.
+        - Uso de `recall_info`: Para busca semântica relevante ao contexto atual da conversa.
+        - Uso de `summarize_memory`: Para responder a perguntas gerais do usuário sobre a memória do agente.
+        - Tratamento de erros: Como reagir a falhas nas ferramentas de memória.
 - **`tools/`**: Contém as ferramentas:
     - `weather.py` (`get_weather`)
-    - `memory_tools.py` (`remember_info`, `recall_info` com docstrings atualizadas).
+    - `memory_tools.py`:
+        - `remember_info(information: str, metadata: dict)`: Salva uma informação textual concisa (`information`) associada a metadados estruturados (`metadata`) no `mem0ai` usando `mem0.add()`. Inclui tratamento de erros.
+        - `recall_info(query: str)`: Realiza busca semântica no `mem0ai` usando `mem0.search()`. Inclui tratamento de erros.
+        - `summarize_memory() -> str`: Busca todas as memórias do usuário (`mem0.get_all()`), categoriza usando metadados, e retorna um resumo formatado. Inclui tratamento de erros.
 
 #### 1.1. Módulo de Ferramentas (`agents/tools`)
 
@@ -149,8 +162,8 @@ def get_weather(city: str) -> str:
 
 #### 2. Módulo de API
 
-- **chat.py**: Endpoints para comunicação com o agente (protegido por autenticação).
 - **auth.py**: Endpoints para registro (`/register`, requer `username`, `email`, `password`) e login (`/token`, usa `email` como `username` no form).
+- **v1/endpoints/agent.py**: Endpoints atuais para chat baseado em sessão (`/chat`), listagem de sessões (`/sessions`) e mensagens (`/sessions/{id}/messages`).
 
 #### 2.1 Autenticação e Banco de Dados (Correções e Detalhes)
 
@@ -160,7 +173,7 @@ def get_weather(city: str) -> str:
 
 #### 3. Módulo de Core
 
-- **config.py**: Configurações do aplicativo
+- **config.py**: Configurações do aplicativo (Atualizado com `SUPABASE_ANON_KEY`).
 - **security.py**: Funcionalidades de segurança (se necessário)
 - **Hashing de Senha:** `passlib` com `bcrypt` (**Atenção:** Versões `passlib==1.7.4` e `bcrypt==3.2.0` devem ser usadas devido a problemas de compatibilidade reportados com versões mais recentes).
 - **Dependências:** Manter atualizadas, **exceto** `passlib` e `bcrypt` que devem permanecer nas versões especificadas até que a compatibilidade seja confirmada.
@@ -168,7 +181,9 @@ def get_weather(city: str) -> str:
 
 #### 4. Módulo de Banco de Dados (opcional)
 
-- **models.py**: Modelos de dados para persistência de mensagens e histórico
+- **models.py**: Modelos de dados para persistência de mensagens e histórico (Tabelas `sessions`, `messages` criadas no Supabase, schema em `docs/supabase_schema.md`).
+- **session.py**: Gerenciador de sessão SQLModel.
+- **supabase_client.py**: Gerenciador de cliente Supabase (para acesso às tabelas de chat).
 
 ## Frontend
 
@@ -180,17 +195,21 @@ def get_weather(city: str) -> str:
 - **shadcn/ui**: Biblioteca de componentes UI
 - **`lucide-react`**: Ícones
 - **`react-router-dom`**: Roteamento
-- **React Context API**: Para gerenciamento de estado (ex: `AuthContext`)
+- **React Context API**: Para gerenciamento de estado (ex: `AuthContext`, `ChatContext`)
 - **`localStorage`**: Para persistência do token JWT
 - **Fetch API**: Cliente HTTP
+- **`@supabase/supabase-js`**: Cliente JS para Supabase (Instalado e configurado)
+- **`date-fns`**: Para formatação de datas (usado na SessionSidebar)
 
 ### Componentes do Frontend
 
-#### 1. Chat UI
+#### 1. Chat UI e Layout
 
-- **ChatBox**: Gerencia o estado das mensagens, usa `ScrollArea` de `shadcn/ui`.
-- **ChatInput**: Usa `Input` e `Button` de `shadcn/ui` com ícones.
-- **ChatMessage**: Estilização aprimorada para diferenciar papéis.
+- **`App.jsx`**: Roteamento principal, integra `SessionSidebar` e a área de chat, usa `AuthContext` e `ChatContext`.
+- **`SessionSidebar.jsx`**: Exibe lista de sessões, permite seleção e criação de novas conversas.
+- **`ChatBox.jsx`**: Exibe mensagens da sessão atual, usa `ScrollArea`.
+- **`ChatInput.jsx`**: Campo de entrada para novas mensagens, usa `Input` e `Button`.
+- **`ChatMessage.jsx`**: Estilização das mensagens individuais.
 
 ```jsx
 // Exemplo Conceitual (ChatInput.jsx refatorado com shadcn/ui e lucide-react)
@@ -223,63 +242,35 @@ const ChatInput = ({ onSendMessage, disabled }) => {
 };
 ```
 
-#### 2. Serviços
+#### 2. Serviços e Contextos
 
-- **api.js**: Funções para comunicação com o backend
-
-```javascript
-// api.js usando Fetch API e variáveis de ambiente Vite
-
-// No Vite, variáveis devem começar com VITE_ e são acessadas via import.meta.env
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-
-export const sendMessage = async (content) => {
-  try {
-    const response = await fetch(`${API_URL}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
-    });
-    
-    if (!response.ok) {
-        let errorDetail = 'Erro desconhecido ao enviar mensagem';
-        try {
-          const errorData = await response.json();
-          errorDetail = errorData.detail || `HTTP error! status: ${response.status}`;
-        } catch(e) { /* Ignora erro no JSON */ errorDetail = `HTTP error! status: ${response.status}`}
-        throw new Error(errorDetail);
-    }
-    
-    const data = await response.json();
-    return data.response; 
-  } catch (error) {
-      console.error('Erro na API (sendMessage):', error);
-      throw error;
-  }
-};
-
-// ... (getChatHistory, etc. se existir)
-```
+- **`services/api.js`**: Funções para comunicação com o backend (incluindo endpoints V1 para sessões e chat).
+- **`lib/supabaseClient.js`**: Inicialização do cliente Supabase.js.
+- **`contexts/AuthContext.jsx`**: Gerencia estado e lógica de autenticação.
+- **`contexts/ChatContext.jsx`**: Gerencia estado do chat (sessões, mensagens, loading), interage com API V1 e Supabase Realtime.
 
 ## Plano de Implementação
 
-*As fases concluídas foram removidas para brevidade. O estado atual reflete a conclusão da Fase 9.*
+*As fases concluídas foram removidas para brevidade. O estado atual reflete a conclusão da Fase 9 e o progresso na Fase 10.*
 
-**Próximos Passos (Pós-Refatoração `username`):**
+**Próximos Passos:**
 
-1.  **Refinamento e Testes (Backend):**
-    *   [ ] Considerar uso de Alembic para futuras migrações de banco de dados.
+1.  **Fase 10: Chat Persistente - Finalização e Testes:**
+    *   **Backend:**
+        *   [ ] Adicionar/Refinar testes unitários/integração para cobrir a chamada do agente `brain` com histórico no endpoint `POST /api/v1/agent/chat`.
+    *   **Frontend:**
+        *   [ ] Investigar e Corrigir Erros Reportados no `ChatContext` (Prioridade Alta).
+        *   [ ] Testar o fluxo completo de criação/seleção de sessão e envio/recebimento de mensagens (incluindo Realtime).
+        *   [ ] Refinar UI/UX (ex: feedback de carregamento mais granular, tratamento de erros no Realtime, talvez título da sessão no backend).
+    *   **Geral:**
+        *   [ ] Atualizar documentação (`README.md`s, etc.) com detalhes da Fase 10.
+2.  **Refinamento e Testes (Pós-Fase 10):**
     *   [ ] Configurar e usar um banco de dados de teste dedicado (ver `TASK.md`).
-    *   [ ] Revisar e potencialmente adicionar mais casos de teste para autenticação e agente.
-2.  **Documentação:**
-    *   [ ] Revisar `PLANNING.md` e `backend/README.md` para garantir consistência final.
-    *   [ ] Atualizar outros `docs/*` se necessário.
+    *   [ ] Considerar uso de Alembic para futuras migrações de banco de dados.
 3.  **Melhorias (Opcional / Futuro):**
     *   [ ] Frontend: Validação de formulário mais robusta.
-    *   [ ] Frontend: Melhor feedback visual (loading, success, error).
-    *   [ ] Backend/Frontend: Implementar refresh tokens para segurança JWT aprimorada.
+    *   [ ] Frontend: Melhor feedback visual geral.
+    *   [ ] Backend/Frontend: Implementar refresh tokens.
     *   [ ] Explorar Handoffs, MCP, Guardrails do OpenAI SDK.
     *   [ ] Refatorar lógica DB para camada `crud`.
 

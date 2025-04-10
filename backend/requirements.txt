@@ -7,7 +7,7 @@ pytest>=7.4.3
 pytest-asyncio>=0.23.2
 httpx>=0.28.1
 sqlmodel>=0.0.24
-psycopg2-binary # Driver Postgres
+psycopg2-binary
 passlib[bcrypt]==1.7.4 # Versão fixada para hashing de senha
 bcrypt==3.2.0 # Versão fixada, dependência do passlib[bcrypt]
 python-jose[cryptography]>=3.3.0 # Para JWT

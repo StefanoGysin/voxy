@@ -2,110 +2,172 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import Session, select # Para interagir com o DB
+# Importar AsyncSession e select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 from datetime import timedelta # Importar timedelta
+from typing import Tuple, Any
+import uuid # Importar uuid
 
-# Placeholder para a dependência da sessão do DB
-# TODO: Implementar e importar corretamente de app.db.session ou similar
+# Importar get_db que agora retorna AsyncSession
 from app.db.session import get_db 
 
 from app.db.models import User, UserCreate, UserRead
-from app.core.security import get_password_hash, verify_password
+# Importar também get_current_user de security
+from app.core.security import get_password_hash, verify_password, get_current_user
 
 # Importar função de criação de token JWT
 from app.core.security import create_access_token
 # Importar modelo de resposta Token
 from app.core.models import Token 
 
-# TODO: Importar funções de criação de token JWT posteriormente
-# from app.core.security import create_access_token
+# Importar cliente Supabase e dependência
+from supabase import Client 
+from app.db.supabase_client import get_supabase_client
 
 router = APIRouter()
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_new_user(
-    *, 
-    session: Session = Depends(get_db), 
-    user_in: UserCreate
-) -> UserRead:
+    *,
+    # session: AsyncSession = Depends(get_db), # Remover dependência do DB local
+    supabase: Client = Depends(get_supabase_client),
+    user_in: UserCreate # Mantém para receber dados
+# ) -> UserRead: # Remover tipo de retorno antigo
+) -> Any: # Retornar a resposta do Supabase ou um dict simples
     """
-    Registra um novo usuário no sistema.
+    Registra um novo usuário APENAS no Supabase Auth.
     """
-    # TODO: Refatorar a lógica CRUD para um módulo app.crud.user
-    # Verificar se o usuário já existe pelo EMAIL (que é único)
-    existing_user = session.exec(
-        select(User).where(User.email == user_in.email) # Mudar para User.email
-    ).first()
-    if existing_user:
+    # 1. Tentar registrar o usuário no Supabase Auth
+    try:
+        print(f"Attempting Supabase Auth sign up for: {user_in.email}")
+        supabase_response = supabase.auth.sign_up({
+            "email": user_in.email,
+            "password": user_in.password,
+            "options": {
+                "data": {
+                    'username': user_in.username
+                 }
+             }
+        })
+        print(f"Supabase Auth sign up response received.")
+
+        # Verificar resposta do Supabase
+        if supabase_response.user is None:
+            error_detail = "Supabase registration failed: User object not returned."
+            print(f"Supabase Auth Error: {error_detail}")
+            # Verificar se é erro de usuário já existente (pode variar)
+            # Exemplo genérico, ajuste se a lib supabase der outra msg
+            # if 'User already registered' in str(supabase_response): # Verificar como a lib reporta isso
+            #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_detail)
+
+        # Extrair dados relevantes para retornar (ex: UUID e email)
+        auth_uuid = supabase_response.user.id
+        email = supabase_response.user.email
+        print(f"Supabase Auth User ID (UUID): {auth_uuid}, Email: {email}")
+
+        # Retornar uma resposta simples de sucesso com dados básicos
+        # O Supabase pode requerer confirmação de email dependendo das config.
+        return {"message": "User registered successfully. Please check email for confirmation if required.", "user_id": auth_uuid, "email": email}
+
+    except HTTPException as http_exc:
+            # Relança exceções HTTP que já foram tratadas (como usuário existente)
+            raise http_exc
+    except Exception as e:
+        print(f"Exception during Supabase sign_up: {e}")
+        # Verifica se o erro é por usuário já existente no Supabase Auth
+        if "User already registered" in str(e) or "user already exists" in str(e).lower():
+             raise HTTPException(
+                 status_code=status.HTTP_400_BAD_REQUEST,
+                 detail="Email already registered in authentication system."
+             )
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            # Mensagem de erro mais precisa
-            detail="Email already registered", 
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to register user with authentication service: {e}"
         )
-    
-    # Criar hash da senha
-    hashed_password = get_password_hash(user_in.password)
-    
-    # Criar novo objeto User (incluirá username e email de user_in)
-    # Excluir a senha do dump para não tentar salvar no modelo User
-    user_data = user_in.model_dump(exclude={"password"})
-    new_user = User(**user_data, hashed_password=hashed_password)
-    
-    # Adicionar ao banco de dados (SEM commit ou refresh aqui)
-    # A fixture override_get_db gerenciará a transação.
-    session.add(new_user)
-    # session.commit() # REMOVIDO
-    # session.refresh(new_user) # REMOVIDO
 
-    # SQLModel ainda não tem o usuário com ID aqui, pois o commit não ocorreu.
-    # Para retornar o UserRead com ID, precisamos fazer flush para obter o ID
-    # antes do rollback da fixture.
-    session.flush()
-    session.refresh(new_user) # Agora o refresh funciona após o flush
-    
-    # Retorna UserRead validado
-    # Precisamos garantir que o objeto retornado não expire após a sessão fechar
-    # model_validate pode lidar com isso, mas verificar se há problemas
-    return UserRead.model_validate(new_user)
-
+    # O código antigo de verificação local e salvamento local foi removido.
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
-    *, 
-    session: Session = Depends(get_db), 
+    *,
+    # session: AsyncSession = Depends(get_db), # Remover dependência do DB local
+    supabase: Client = Depends(get_supabase_client), # Adicionar cliente Supabase
     form_data: OAuth2PasswordRequestForm = Depends()
-) -> Token: 
+) -> Token:
     """
-    Autentica um usuário e retorna um token de acesso (JWT).
-    Usa OAuth2PasswordRequestForm para receber username (neste caso, o email) e password.
-    Corresponde à URL definida no OAuth2PasswordBearer.
+    Autentica um usuário via Supabase Auth e retorna um token JWT.
     """
-    # Buscar usuário pelo EMAIL
-    user = session.exec(
-        select(User).where(User.email == form_data.username)
-    ).first()
-    
-    # 1. Verificar se o usuário existe
-    if not user:
-        raise HTTPException(
-            # Status correto se usuário não encontrado
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="User not found",
-            # Não incluir WWW-Authenticate para 404
+    try:
+        print(f"Attempting Supabase Auth sign in for: {form_data.username}")
+        # Autenticar diretamente com Supabase Auth
+        response = supabase.auth.sign_in_with_password(
+            {"email": form_data.username, "password": form_data.password}
         )
+        print(f"Supabase Auth sign in response received.")
 
-    # 2. Verificar se a senha está correta (só se o usuário existe)
-    if not verify_password(form_data.password, user.hashed_password):
+        # Verificar se o login foi bem-sucedido e temos o usuário
+        if response.user is None or response.session is None:
+            # O erro pode estar em response.error, mas a ausência de user/session já indica falha
+            print(f"Supabase Auth sign in failed. Response: {response}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Extrair o UUID do usuário do Supabase Auth
+        user_uuid = response.user.id
+        if not user_uuid:
+             print("Error: Supabase Auth User ID (UUID) not found in response.")
+             raise HTTPException(
+                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                 detail="Authentication successful but failed to retrieve user ID."
+             )
+
+        print(f"Supabase Auth sign in successful. User UUID: {user_uuid}")
+        
+        # Obter o token de acesso diretamente da sessão Supabase
+        access_token = response.session.access_token
+        if not access_token:
+             print("Error: Supabase Auth access token not found in session.")
+             raise HTTPException(
+                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                 detail="Authentication successful but failed to retrieve access token."
+             )
+        
+        return Token(access_token=access_token, token_type="bearer")
+
+    except Exception as e:
+        # Capturar erros genéricos ou específicos do Supabase
+        print(f"Exception during Supabase sign_in: {e}")
+        # Retornar um erro genérico de não autorizado para segurança
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password", 
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # Gerar e retornar token JWT
-    access_token = create_access_token(
-        data={"sub": user.email}
-    )
-    return Token(access_token=access_token, token_type="bearer")
+
+# Adicionar endpoint /users/me para que os testes de segurança funcionem
+# Modificar para usar o novo get_current_user e retornar dados do Supabase User
+# Ajustar o response_model se necessário, ou manter UserRead se os campos essenciais coincidirem
+# @router.get("/users/me", response_model=UserRead)
+@router.get("/users/me") # Remover response_model temporariamente ou ajustar
+async def read_users_me(current_supabase_user: Any = Depends(get_current_user)):
+    """Retorna os dados do usuário autenticado obtidos do Supabase Auth."""
+    # O objeto current_supabase_user tem atributos como id, email, created_at, etc.
+    # Pode ser necessário mapear para UserRead se quiser manter esse schema de resposta.
+    # Por enquanto, apenas retornamos o objeto como está (ou um dict)
+    if not current_supabase_user:
+         raise HTTPException(status_code=404, detail="User not found via token")
+    # Mapeamento simples para exemplo (ajuste conforme necessário)
+    return {
+        "id": getattr(current_supabase_user, 'id', None), # Este será o UUID
+        "email": getattr(current_supabase_user, 'email', None),
+        "username": getattr(current_supabase_user.user_metadata, 'username', None), # Pega do metadata se salvamos lá
+        "auth_uuid": getattr(current_supabase_user, 'id', None) # Mapeia id para auth_uuid se UserRead for usado
+    }
+    # return current_supabase_user # Ou retornar o objeto inteiro
 
 # TODO: Adicionar este router ao app principal em main.py 
