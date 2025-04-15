@@ -46,8 +46,8 @@ O projeto Voxy utiliza o OpenAI Agents SDK para criar um assistente inteligente 
 
 1.  **Clonar o Repositório:**
     ```bash
-    git clone <url-do-repositorio>
-    cd <nome-do-repositorio>
+    git clone https://github.com/StefanoGysin/voxy.git
+    cd voxy
     ```
 
 2.  **Configurar Backend:**
