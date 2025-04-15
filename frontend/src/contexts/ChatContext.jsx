@@ -107,6 +107,26 @@ export const ChatProvider = ({ children }) => {
 
       // Assistant message will likely arrive via Realtime subscription
       // We might add a placeholder here if needed, or wait for Realtime
+      if (result.success && result.assistant_content && result.assistant_message_id) {
+        const assistantMessage = {
+          id: result.assistant_message_id,
+          session_id: result.session_id,
+          role: 'assistant',
+          content: result.assistant_content,
+          created_at: new Date().toISOString(), // Usar tempo atual ou backend se disponível
+        };
+        // Adiciona a mensagem do assistente ao estado, garantindo que não haja duplicatas se o Realtime chegar rápido
+        setMessages(prevMessages => {
+            const messageExists = prevMessages.some(msg => msg.id === assistantMessage.id);
+            if (!messageExists) {
+                 const updatedMessages = [...prevMessages, assistantMessage];
+                 // Reordenar após adicionar, caso necessário (embora map + sort possa ser mais eficiente)
+                 updatedMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                 return updatedMessages;
+            }
+            return prevMessages; // Retorna o estado anterior se a mensagem já existe
+        });
+      }
 
     } catch (err) {
       console.error("Failed to send message:", err);

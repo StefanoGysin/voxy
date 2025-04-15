@@ -14,7 +14,9 @@ from .api.auth import router as auth_router
 # Importar o novo router do agente
 from .api.v1.endpoints.agent import router as agent_router_v1
 # Importar função para inicializar cliente Supabase
-from .db.supabase_client import initialize_supabase_client
+from .db.supabase_client import initialize_supabase_client, get_supabase_client
+# Importar o novo AuthMiddleware
+from .middleware import AuthMiddleware
 
 # --- Configuração de Logging --- # Modificado
 # Define o nível base como DEBUG para capturar nossos logs customizados
@@ -40,7 +42,7 @@ async def lifespan(app: FastAPI):
     # Código a ser executado ANTES do startup
     print("Iniciando aplicação Voxy...")
     print("Inicializando cliente Supabase...")
-    initialize_supabase_client() # Chama a função para inicializar Supabase
+    await initialize_supabase_client() # Usa await para inicializar Supabase
     yield
     # Código a ser executado APÓS o shutdown
     print("Encerrando aplicação Voxy...")
@@ -53,13 +55,34 @@ app = FastAPI(
 )
 
 # Configurar CORS
+# Lista explícita de origens permitidas (incluindo o frontend dev)
+allowed_origins = [
+    "http://localhost:5173", # Frontend Vite dev
+    "http://127.0.0.1:5173", # Outra forma de localhost
+    # Adicione outras origens se necessário (ex: produção)
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção, especifique origens permitidas
+    # allow_origins=["*"], # Substituído por lista explícita
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], # Métodos explícitos
+    # allow_headers=["*"], # Substituído por lista explícita
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization", # Essencial para autenticação
+        "X-Requested-With",
+        # Adicione outros cabeçalhos customizados se usar
+    ],
 )
+
+# Adicionar AuthMiddleware (sem passar o cliente Supabase)
+app.add_middleware(AuthMiddleware)
+print("AuthMiddleware adicionado com sucesso.")
 
 # Registrar rotas
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])

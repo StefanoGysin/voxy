@@ -12,9 +12,11 @@ from fastapi.security import OAuth2PasswordBearer
 # Importar configurações
 from .config import settings
 from .models import TokenData
-# Importar cliente Supabase e dependência
-from supabase import Client
+# Importar AsyncClient e Client
+from supabase import Client, AsyncClient
 from app.db.supabase_client import get_supabase_client
+# Importar exceções customizadas
+from .exceptions import DatabaseError
 
 # Configura o contexto do passlib
 # Usaremos bcrypt como o esquema de hashing principal
@@ -59,47 +61,18 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    """
-    Cria um novo token de acesso JWT.
-
-    Args:
-        data (dict): Dados a serem incluídos no payload (geralmente {"sub": username}).
-        expires_delta (timedelta | None): Duração opcional da validade do token.
-                                           Se None, usa o padrão das configurações.
-
-    Returns:
-        str: O token JWT codificado.
-    """
-    to_encode = data.copy()
-    now = datetime.now(timezone.utc)
-    if expires_delta:
-        expire = now + expires_delta
-    else:
-        expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-# Remover decode_access_token, pois a validação será feita pelo Supabase
-# def decode_access_token(token: str) -> TokenData | None:
-#    ...
-
-# Modificar get_current_user para usar Supabase Auth
+# Modificar get_current_user para ser async e usar AsyncClient
 async def get_current_user(
-    # Remover dependência do DB local (session)
-    # session: AsyncSession = Depends(get_db),
-    supabase: Client = Depends(get_supabase_client), # Adicionar cliente Supabase
+    # Injetar AsyncClient em vez de Client
+    supabase: AsyncClient = Depends(get_supabase_client),
     token: str = Depends(oauth2_scheme)
-#) -> Tuple[User, str]: # Modificar tipo de retorno
 ) -> Any: # Retorna o objeto User do Supabase (ou Any para simplificar)
     """
     Dependência FastAPI para obter o usuário atual validando o token JWT
-    com o Supabase Auth.
+    com o Supabase Auth de forma assíncrona.
 
     Args:
-        supabase (Client): Cliente Supabase injetado.
+        supabase (AsyncClient): Cliente Supabase assíncrono injetado.
         token (str): Token JWT obtido do cabeçalho Authorization Bearer.
 
     Raises:
@@ -107,34 +80,34 @@ async def get_current_user(
 
     Returns:
         Any: O objeto User retornado por supabase.auth.get_user(), que contém
-             informações do usuário autenticado (incluindo id/UUID).
-             Retornando Any por simplicidade, pode ser tipado melhor se necessário.
+             informações do usuário autenticado.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
-        print("Attempting to get user from Supabase Auth with token...")
-        # Validar o token e obter o usuário diretamente do Supabase Auth
-        response = supabase.auth.get_user(token)
-        print("Supabase Auth get_user response received.")
-        
+        print("Attempting to get user from Supabase Auth with token (async)...")
+        # Validar o token e obter o usuário diretamente do Supabase Auth (agora com await)
+        response = await supabase.auth.get_user(token)
+        print("Supabase Auth get_user response received (async).")
+
         # Verificar se o usuário foi retornado com sucesso
         if response.user is None:
-            print(f"Supabase Auth get_user failed. Response: {response}")
+            print(f"Supabase Auth get_user failed (async). Response: {response}")
             raise credentials_exception
-        
-        print(f"Supabase Auth get_user successful. User ID: {response.user.id}")
+
+        print(f"Supabase Auth get_user successful (async). User ID: {response.user.id}")
         # Retorna o objeto User do Supabase
-        # Este objeto contém o 'id' (UUID), 'email', 'aud', 'role', etc.
-        return response.user 
+        return response.user
 
     except Exception as e:
-        # Captura erros gerais (ex: token mal formatado, erro de rede, etc.)
-        print(f"Exception during Supabase get_user: {e}")
+        # Captura erros gerais e levanta a exceção de credenciais
+        # Idealmente, poderíamos capturar exceções específicas do supabase-py se disponíveis
+        print(f"Exception during Supabase get_user (async): {e}")
+        # Poderia levantar DatabaseError aqui, mas HTTPException é mais direto para a API
         raise credentials_exception
 
 # A função antiga que buscava no DB local é removida ou comentada.

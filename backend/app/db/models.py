@@ -28,7 +28,8 @@ class UserCreate(UserBase):
 
 class UserRead(UserBase):
     """ Modelo Pydantic para ler/retornar dados de usuário (sem senha). """
-    id: int
-    auth_uuid: Optional[uuid.UUID] = None # Incluir no modelo de leitura também
+    id: uuid.UUID # Alterado para UUID (representa o auth_uuid do Supabase)
+    # O campo auth_uuid não é mais necessário aqui se id representa o auth_uuid
+    # auth_uuid: Optional[uuid.UUID] = None
 
 # Adicionar outros modelos conforme necessário (ex: Token, Message, etc.) 

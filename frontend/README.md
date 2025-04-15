@@ -37,7 +37,7 @@ Este diretório contém o frontend da aplicação Voxy, construído com React, V
     ```
 
 3.  **Variáveis de Ambiente:** Copie o arquivo `.env.example` para `.env` na raiz do diretório `frontend/` e preencha as variáveis necessárias:
-    *   `VITE_API_BASE_URL`: URL base da sua API backend FastAPI (ex: `http://localhost:8000`).
+    *   `VITE_API_URL`: URL base da sua API backend FastAPI (ex: `http://localhost:8000`).
     *   `VITE_SUPABASE_URL`: URL do seu projeto Supabase.
     *   `VITE_SUPABASE_ANON_KEY`: Chave pública (anon) do seu projeto Supabase (usada para conexão Realtime).
 
@@ -51,10 +51,6 @@ Este diretório contém o frontend da aplicação Voxy, construído com React, V
     yarn dev
     ```
     A aplicação estará disponível geralmente em `http://localhost:5173`.
-
-## Estrutura
-
-Consulte o `PLANNING.md` na raiz do projeto para uma visão detalhada da arquitetura e estrutura de diretórios do frontend.
 
 ## Mais Informações
 

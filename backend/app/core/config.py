@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # Configurações gerais
     APP_NAME: str = "Voxy"
     API_PREFIX: str = "/api"
+    API_V1_STR: str = "/api/v1"
     DEBUG: bool = False
     
     # Configurações de segurança

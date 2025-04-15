@@ -6,9 +6,20 @@ python-dotenv>=1.0.0
 pytest>=7.4.3
 pytest-asyncio>=0.23.2
 httpx>=0.28.1
-sqlmodel>=0.0.24
-psycopg2-binary
-passlib[bcrypt]==1.7.4 # Versão fixada para hashing de senha
-bcrypt==3.2.0 # Versão fixada, dependência do passlib[bcrypt]
-python-jose[cryptography]>=3.3.0 # Para JWT
-mem0ai 
+sqlmodel>=0.0.24 # Manter por enquanto (importado em db/session.py)
+# psycopg2-binary # Removido - Driver síncrono não utilizado, supabase usa asyncpg
+passlib[bcrypt]==1.7.4 # Versão fixada para hashing de senha (importado em core/security.py)
+bcrypt==3.2.0 # Versão fixada, dependência do passlib[bcrypt] (importado indiretamente)
+python-jose[cryptography]>=3.3.0 # Para JWT (importado em core/security.py e testes)
+mem0ai
+pytest-dotenv
+factory-boy
+pytest-factoryboy
+Faker
+supabase[async]>=2.5.0 # Cliente Supabase com suporte async
+# aiofiles>=23.2.1 # Removido - Não encontrado uso de operações de arquivo assíncronas
+pytest-cov # Para análise de cobertura de testes
+email-validator # Dependência do Pydantic (EmailStr) usada nos modelos
+python-multipart # Dependência do FastAPI para processar Form data (ex: OAuth2PasswordRequestForm)
+asyncpg
+vecs
