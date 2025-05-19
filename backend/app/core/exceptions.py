@@ -21,6 +21,11 @@ class ExternalServiceError(BaseAppError):
     pass
 
 
+class ImageAnalysisError(BaseAppError):
+    """Erros relacionados à análise de imagens pelo VisioScan"""
+    pass
+
+
 @asynccontextmanager
 async def error_boundary(operation_name: str, fallback_value=None):
     """Gerenciador de contexto assíncrono para tratar e registrar erros específicos da aplicação."""

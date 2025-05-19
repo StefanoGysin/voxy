@@ -76,7 +76,8 @@ async def test_add_message_success_user_role(
         "session_id": str(message_data["session_id"]),
         "role": "user",
         "content": message_data["content"],
-        "user_id": str(message_data["user_id"])
+        "user_id": str(message_data["user_id"]),
+        "metadata": {}  # Adicionar metadata vazio, que é o padrão
     }
 
     # Chamar a função de serviço com o mock criado localmente
@@ -118,7 +119,8 @@ async def test_add_message_success_assistant_role(
         "session_id": str(message_data["session_id"]),
         "role": "assistant", # Usar 'assistant' aqui
         "content": message_data["content"],
-        "user_id": str(message_data["user_id"])
+        "user_id": str(message_data["user_id"]),
+        "metadata": {}  # Adicionar metadata vazio, que é o padrão
     }
 
     # Configurar resposta de sucesso do mock_execute
@@ -196,7 +198,8 @@ async def test_add_message_supabase_error(message_data):
         "session_id": str(message_data["session_id"]),
         "role": message_data["role"],
         "content": message_data["content"],
-        "user_id": str(message_data["user_id"])
+        "user_id": str(message_data["user_id"]),
+        "metadata": {}  # Adicionar metadata vazio, que é o padrão
     }
 
     # Chamar e verificar exceção - Mudança na mensagem de erro esperada
@@ -240,7 +243,8 @@ async def test_add_message_supabase_no_data_returned(
         "session_id": str(message_data["session_id"]),
         "role": message_data["role"],
         "content": message_data["content"],
-        "user_id": str(message_data["user_id"])
+        "user_id": str(message_data["user_id"]),
+        "metadata": {}  # Adicionar metadata vazio, que é o padrão
     }
 
     with pytest.raises(DatabaseError, match="Falha ao adicionar mensagem: Supabase não retornou dados."):
@@ -281,7 +285,8 @@ async def test_add_message_unexpected_exception(
         "session_id": str(message_data["session_id"]),
         "role": message_data["role"],
         "content": message_data["content"],
-        "user_id": str(message_data["user_id"])
+        "user_id": str(message_data["user_id"]),
+        "metadata": {}  # Adicionar metadata vazio, que é o padrão
     }
 
     with pytest.raises(DatabaseError, match=f"Erro inesperado ao adicionar mensagem: {generic_error_message}"):

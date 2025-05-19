@@ -226,3 +226,36 @@ async def auth_headers(
     except Exception as e:
         # Captura erros HTTP ou outros problemas
         pytest.fail(f"Erro durante o login mockado do usuário de teste (async): {e}")
+
+@pytest.fixture(scope="function")
+async def client(test_client) -> AsyncClient:
+    """
+    Alias para test_client para compatibilidade com testes existentes.
+    """
+    return test_client
+
+@pytest.fixture(scope="function")
+async def get_authenticated_client(test_client, auth_headers, supabase_test_client, mocker):
+    """
+    Fixture que retorna uma função assíncrona que produz um cliente autenticado.
+    Também configura o mock para o middleware de autenticação.
+    """
+    # Mockar o middleware para evitar o erro de cliente não inicializado
+    mocker.patch("app.middleware.get_supabase_client", return_value=supabase_test_client)
+    
+    # Configura o override para que todas as dependências que usam get_supabase_client
+    # retornem a instância de teste
+    from app.main import app
+    from app.db.supabase_client import get_supabase_client
+    
+    app.dependency_overrides[get_supabase_client] = lambda: supabase_test_client
+    
+    async def _get_client():
+        # Criar uma cópia do cliente e adicionar os cabeçalhos de autenticação
+        test_client.headers.update(auth_headers)
+        return test_client
+    
+    yield _get_client
+    
+    # Limpar os overrides após os testes
+    app.dependency_overrides.clear()

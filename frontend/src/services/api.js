@@ -169,30 +169,176 @@ export const getSessionMessages = async (sessionId, token) => {
 };
 
 /**
- * Envia uma nova mensagem para o agente, associada a uma sessão.
- * Se sessionId for null/undefined, uma nova sessão será criada.
- * @param {string} query - A mensagem/pergunta do usuário.
- * @param {string|null} sessionId - O UUID da sessão existente ou null para criar uma nova.
- * @param {string} token - Token de autenticação JWT.
- * @returns {Promise<object>} - Resposta da API (ex: {success, session_id, user_message_id, assistant_message_id}).
+ * Sends a chat message (text, optionally with image URL or image path) to the backend.
+ * @param {Object} payload - The message payload.
+ * @param {string} payload.text - The message text.
+ * @param {string|null} payload.sessionId - The current session ID, or null to start a new session.
+ * @param {string} payload.token - The user's authentication token.
+ * @param {string} [payload.imageUrl] - The URL of an image to send (used if imagePath is not provided).
+ * @param {string} [payload.imagePath] - The path of an uploaded image (takes precedence over imageUrl).
+ * @returns {Promise<Object>} - A promise that resolves with the backend response (including message IDs, session ID, assistant response).
+ * @throws {Error} - Throws an error if the API call fails.
  */
-export const postChatMessage = async (query, sessionId, token) => {
-  if (!query || !token) {
-    return Promise.reject(new Error("Query and authentication token are required."));
+export const postChatMessage = async (payload) => {
+  const { text, sessionId, token, imageUrl, imagePath } = payload; // Destructure payload
+
+  if (!token) {
+    throw new Error('Authentication token is required to send a message.');
   }
+
+  // Create FormData to handle potential file paths or standard data
+  const formData = new FormData();
+  formData.append('query', text || ''); // Ensure text is always present, even if empty
+
+  if (sessionId) {
+    formData.append('session_id', sessionId);
+  }
+
+  // Add image information: prioritize imagePath if available
+  if (imagePath) {
+    formData.append('image_path', imagePath);
+  } else if (imageUrl) {
+    formData.append('image_url', imageUrl);
+  }
+
+  // Debug: Log FormData contents (won't show file contents, but keys)
+  // for (let [key, value] of formData.entries()) {
+  //   console.log(`FormData: ${key} = ${value}`);
+  // }
+
   try {
-    const response = await fetch(`${API_V1_URL}/chat`, { // Correct: Uses API_V1_URL directly
+    const response = await fetch(`${API_V1_URL}/chat`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
+        // Content-Type is set automatically by the browser for FormData
       },
-      body: JSON.stringify({ query, session_id: sessionId }), // session_id can be null
+      body: formData, // Send FormData
     });
-    const data = await handleApiResponse(response, 'postChatMessage');
-    return data; // Returns AgentChatResponse {success, session_id, user_message_id, assistant_message_id}
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { detail: response.statusText };
+      }
+      console.error('Chat API Error:', response.status, errorData);
+      throw new Error(errorData.detail || `Failed to send message (${response.status})`);
+    }
+
+    return await response.json();
+
   } catch (error) {
-    console.error('Erro na API (postChatMessage):', error);
+    console.error('Error during chat message fetch:', error);
+    // Re-throw the error for the calling context (ChatContext) to handle
+    throw error;
+  }
+};
+
+/**
+ * Uploads an image file to the backend.
+ * @param {File} file - The image file to upload.
+ * @param {string} token - The user's authentication token.
+ * @returns {Promise<string>} - A promise that resolves with the image path from the backend.
+ * @throws {Error} - Throws an error if the upload fails.
+ */
+export const uploadImage = async (file, token) => {
+  if (!file || !token) {
+    throw new Error('File and token are required for upload.');
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/uploads/image`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Content-Type is set automatically by the browser for FormData
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        // If response is not JSON or empty
+        errorData = { detail: response.statusText };
+      }
+      
+      // Melhor log de error para debug
+      console.error('Upload API Error:', response.status, errorData);
+      
+      // Exibir detalhes específicos do erro 422
+      if (response.status === 422) {
+        console.error('Validation Error Details:', JSON.stringify(errorData));
+        // Se for um array de erros, extrair a primeira mensagem
+        if (Array.isArray(errorData.detail)) {
+          const firstError = errorData.detail[0];
+          throw new Error(`Validation error: ${JSON.stringify(firstError)}`);
+        }
+      }
+      
+      throw new Error(errorData.detail || `Failed to upload image (${response.status})`);
+    }
+
+    const responseJson = await response.json();
+    console.log('Upload successful:', responseJson);
+    if (!responseJson.image_path) {
+        throw new Error('Backend did not return an image_path after upload.');
+    }
+    return responseJson.image_path;
+  } catch (error) {
+    console.error('Error during image upload fetch:', error);
+    // Re-throw the error to be caught by the calling function (e.g., in ChatContext)
+    throw error;
+  }
+};
+
+// --- Novo Serviço para URL Assinada ---
+
+/**
+ * Fetches a short-lived signed URL for a given image path.
+ * @param {string} imagePath - The relative path of the image in storage (e.g., 'user_uuid/filename.ext').
+ * @param {string} token - The user's authentication token.
+ * @returns {Promise<string>} - A promise that resolves with the signed URL string.
+ * @throws {Error} - Throws an error if fetching the signed URL fails.
+ */
+export const getSignedImageUrl = async (imagePath, token) => {
+  if (!imagePath || !token) {
+    throw new Error('Image path and token are required to get a signed URL.');
+  }
+
+  // O endpoint está em /api/v1/uploads/signed-url
+  const UPLOAD_API_URL = `${API_BASE_URL}/api/v1/uploads`;
+
+  try {
+    // Construir a URL com o path como query parameter
+    const url = new URL(`${UPLOAD_API_URL}/signed-url`);
+    url.searchParams.append('path', imagePath);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await handleApiResponse(response, 'getSignedImageUrl');
+
+    if (!data || !data.signed_url) {
+      throw new Error('Signed URL not found in response.');
+    }
+
+    return data.signed_url;
+
+  } catch (error) {
+    console.error(`Error fetching signed URL for path ${imagePath}:`, error);
+    // Re-throw for the component to handle (e.g., show placeholder)
     throw error;
   }
 };

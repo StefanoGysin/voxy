@@ -1,25 +1,34 @@
+# Web Framework and API
 fastapi>=0.109.0
 uvicorn>=0.27.0
+python-multipart # Dependência do FastAPI para processar Form data (ex: OAuth2PasswordRequestForm)
+
+# Configuration and Environment
 pydantic-settings # Substitui pydantic para carregar .env
-openai-agents>=0.0.7
 python-dotenv>=1.0.0
-pytest>=7.4.3
-pytest-asyncio>=0.23.2
-httpx>=0.28.1
+email-validator # Dependência do Pydantic (EmailStr) usada nos modelos
+
+# Database and ORM
 sqlmodel>=0.0.24 # Manter por enquanto (importado em db/session.py)
-# psycopg2-binary # Removido - Driver síncrono não utilizado, supabase usa asyncpg
+asyncpg # Driver PostgreSQL assíncrono
+vecs # Biblioteca para gerenciamento de vetores
+supabase[async]>=2.5.0 # Cliente Supabase com suporte async
+
+# Authentication and Security
 passlib[bcrypt]==1.7.4 # Versão fixada para hashing de senha (importado em core/security.py)
 bcrypt==3.2.0 # Versão fixada, dependência do passlib[bcrypt] (importado indiretamente)
 python-jose[cryptography]>=3.3.0 # Para JWT (importado em core/security.py e testes)
-mem0ai
+
+# AI and Memory Management
+openai-agents>=0.0.7
+mem0ai # Biblioteca para gerenciamento de memória
+
+# Testing
+pytest>=7.4.3
+pytest-asyncio>=0.23.2
 pytest-dotenv
 factory-boy
 pytest-factoryboy
-Faker
-supabase[async]>=2.5.0 # Cliente Supabase com suporte async
-# aiofiles>=23.2.1 # Removido - Não encontrado uso de operações de arquivo assíncronas
+Faker # Biblioteca para geração de dados de teste
 pytest-cov # Para análise de cobertura de testes
-email-validator # Dependência do Pydantic (EmailStr) usada nos modelos
-python-multipart # Dependência do FastAPI para processar Form data (ex: OAuth2PasswordRequestForm)
-asyncpg
-vecs
+httpx>=0.28.1

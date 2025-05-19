@@ -53,7 +53,7 @@ async def create_session(supabase: AsyncClient, user_id: Optional[uuid.UUID] = N
 
 # --- Funções adicionais a serem implementadas --- 
 
-async def add_message(supabase: AsyncClient, session_id: uuid.UUID, role: str, content: str, user_id: uuid.UUID) -> Dict[str, Any]:
+async def add_message(supabase: AsyncClient, session_id: uuid.UUID, role: str, content: str, user_id: uuid.UUID, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Adiciona uma nova mensagem a uma sessão existente no Supabase de forma assíncrona.
 
@@ -63,6 +63,7 @@ async def add_message(supabase: AsyncClient, session_id: uuid.UUID, role: str, c
         role (str): Papel do autor ('user' ou 'assistant').
         content (str): Conteúdo da mensagem.
         user_id (uuid.UUID): O ID do usuário associado.
+        metadata (Optional[Dict[str, Any]]): Metadados adicionais para a mensagem, como image_url.
 
     Returns:
         Dict[str, Any]: A mensagem criada.
@@ -79,7 +80,8 @@ async def add_message(supabase: AsyncClient, session_id: uuid.UUID, role: str, c
             "session_id": str(session_id),
             "role": role,
             "content": content,
-            "user_id": str(user_id)
+            "user_id": str(user_id),
+            "metadata": metadata if metadata else {}
         }
         
         # Usar await na chamada execute()

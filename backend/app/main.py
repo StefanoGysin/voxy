@@ -13,6 +13,8 @@ from contextlib import asynccontextmanager # Para eventos startup/shutdown
 from .api.auth import router as auth_router
 # Importar o novo router do agente
 from .api.v1.endpoints.agent import router as agent_router_v1
+# Importar o novo router de uploads (NOVO)
+from .api.v1.endpoints.uploads import router as uploads_router_v1
 # Importar função para inicializar cliente Supabase
 from .db.supabase_client import initialize_supabase_client, get_supabase_client
 # Importar o novo AuthMiddleware
@@ -88,6 +90,8 @@ print("AuthMiddleware adicionado com sucesso.")
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 # Registrar as novas rotas do agente v1
 app.include_router(agent_router_v1, prefix="/api/v1/agent", tags=["agent_v1"])
+# Registrar as novas rotas de uploads v1 (NOVO)
+app.include_router(uploads_router_v1, prefix="/api/v1/uploads", tags=["uploads_v1"])
 
 
 @app.get("/")
